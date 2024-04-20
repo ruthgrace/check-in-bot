@@ -18,3 +18,7 @@ reference tutorial: https://api.slack.com/start/building/bolt-python
 3. `export SLACK_SIGNING_SECRET=your-signing-secret`
 4. `ngrok http 3000`
 5. `python3 app.py`
+
+## Ruth to do
+
+- put environment variable exports in app code
