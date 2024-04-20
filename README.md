@@ -11,6 +11,10 @@ automatically add 3 emoji reacts to each message in channel
 
 reference tutorial: https://api.slack.com/start/building/bolt-python
 
+### setup debugging - [SSL: CERTIFICATE_VERIFY_FAILED]
+
+Run this file on mac (click on it): `/Applications/Python\ 3.*/Install\ Certificates.command`
+
 ## dev process
 
 1. activate venv `source .venv/bin/activate`
