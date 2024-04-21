@@ -13,8 +13,8 @@ app = App(
 def emoji_react(client, event, logger):
   try:
      app.client.reactions_add(
-        channel=event.channels,
-        timestamp=event.event_time,
+        channel=event["event"]["channel"],
+        timestamp=event["event_time"],
         name="thumbsup",
         token=app.token
     )
