@@ -9,14 +9,14 @@ app = App(
 )
 
 # New functionality
-@app.event("message.groups")
+@app.event("message")
 def emoji_react(client, event, logger):
   try:
      app.client.reactions_add(
-        channel=channel_id,
-        timestamp=timestamp,
-        name="hdhex",
-        token=context.bot_token
+        channel=event.channels,
+        timestamp=event.event_time,
+        name="thumbsup",
+        token=app.token
     )
   except Exception as e:
     logger.error(f"Error publishing emoji reacts: {e}")
