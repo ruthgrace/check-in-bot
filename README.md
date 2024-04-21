@@ -20,10 +20,9 @@ Run this file on mac (click on it): `/Applications/Python\ 3.*/Install\ Certific
 ## dev process
 
 1. activate venv `source .venv/bin/activate`
-2. `export SLACK_BOT_TOKEN=xoxb-your-token`
-3. `export SLACK_SIGNING_SECRET=your-signing-secret`
-4. `ngrok http 3000`
-5. `python3 app.py`
+2. `ngrok http 3000`
+3. update slack bot Event Subscriptions > Request URL setting with the ngrok URL, adding `/slack/events` on the end
+4. `python3 app.py`
 
 ## Ruth to do
 
