@@ -8,8 +8,18 @@ app = App(
     signing_secret=os.environ.get("SLACK_SIGNING_SECRET")
 )
 
-# Add functionality here later
-# @app.event("app_home_opened") etc.
+# New functionality
+@app.event("message.groups")
+def emoji_react(client, event, logger):
+  try:
+     app.client.reactions_add(
+        channel=channel_id,
+        timestamp=timestamp,
+        name="hdhex",
+        token=context.bot_token
+    )
+  except Exception as e:
+    logger.error(f"Error publishing emoji reacts: {e}")
 
 # Ready? Start your app!
 if __name__ == "__main__":
