@@ -13,6 +13,7 @@ app = App(
 @app.event("message")
 def emoji_react(client, event, logger):
   try:
+     print(event["text"])
      app.client.reactions_add(
         channel=event["channel"],
         timestamp=event["ts"],

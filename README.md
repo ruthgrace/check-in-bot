@@ -7,7 +7,7 @@ automatically add 3 emoji reacts to each message in channel
 1. add bot_token with string value of oauth token to tokens.py
 2. make venv `python3 -m venv .venv`
 3. install ngrok https://ngrok.com/download
-4. `pip install slack_bolt`
+4. `pip install -r requirements.txt`
 
 reference tutorial: https://api.slack.com/start/building/bolt-python
 
