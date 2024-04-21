@@ -1,11 +1,12 @@
+import tokens
 import os
 # Use the package we installed
 from slack_bolt import App
 
 # Initialize your app with your bot token and signing secret
 app = App(
-    token=os.environ.get("SLACK_BOT_TOKEN"),
-    signing_secret=os.environ.get("SLACK_SIGNING_SECRET")
+    token=tokens.bot_token,
+    signing_secret=tokens.bot_signing_secret
 )
 
 # New functionality
@@ -13,13 +14,13 @@ app = App(
 def emoji_react(client, event, logger):
   try:
      app.client.reactions_add(
-        channel=event["event"]["channel"],
-        timestamp=event["event_time"],
+        channel=event["channel"],
+        timestamp=event["ts"],
         name="thumbsup",
-        token=app.token
+        token=tokens.bot_token,
     )
   except Exception as e:
-    logger.error(f"Error publishing emoji reacts: {e}")
+    logger.error(f"Error publishing emoji reacts: {repr(e)}")
 
 # Ready? Start your app!
 if __name__ == "__main__":
