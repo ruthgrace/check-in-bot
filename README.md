@@ -27,4 +27,5 @@ Run this file on mac (click on it): `/Applications/Python\ 3.*/Install\ Certific
 
 ## Ruth to do
 
-- put environment variable exports in app code
+- read contents of message
+- add different reactions based on message contents
