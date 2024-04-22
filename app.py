@@ -18,18 +18,19 @@ app = App(
 @app.event("message")
 def emoji_react(client, event, logger):
   try:
+    print(event["text"])
     chat_completion = ai_client.chat.completions.create(
         messages=[
           {
             "role": "system",
-            "content": "You are a intelligent assistant. You respond to the following messages with a single line representing four unique emojis, formatted for Slack. The emojis should represent things mentioned in the messages, with a focus on nouns and verbs, with one or no emojis representing a sentiment named in the message. If there is an element of the text that is sad or stressed, please use the hug emoji to express comfort instead of something more specific for that part of the text. For example if someone's relative died please react with a hug instead of with an emoji representing the relative or death.",
+            "content": "You are a intelligent assistant. You respond to all of the following messages with a single line representing four unique emojis, formatted for Slack. The emojis should represent things mentioned in the messages, with only zero or one emojis representing sentiment. Note that text surrounded by ~ or where the line starts with a negative emoji means that the task mentioned there was not completed - please exclude these lines from your emoji output. If there is an element of the text that is sad or stressed, please use the hug emoji to express comfort instead of something more specific for that part of the text. For example if someone's relative died please react with a hug instead of with an emoji representing the relative or death.",
           }, 
           {
             "role": "user",
             "content": event["text"]
           }, 
         ],
-        model="gpt-3.5-turbo",
+        model="gpt-4",
     )
     reply = chat_completion.choices[0].message.content
     print(f"{reply}")
