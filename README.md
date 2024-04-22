@@ -26,7 +26,7 @@ Run this file on mac (click on it): `/Applications/Python\ 3.*/Install\ Certific
 
 ## production set up
 
-1. make sure you have your domain. mine is emojibot.ruthgracewong.com
+1. make sure you have your domain. mine is emojibot.ruthgracewong.com (subdomain managed via digital ocean)
 2. clone this repo to /var/www/
 3. make SSL certificates for HTTPS
 ```
