@@ -26,5 +26,4 @@ Run this file on mac (click on it): `/Applications/Python\ 3.*/Install\ Certific
 
 ## Ruth to do
 
-- read contents of message
-- add different reactions based on message contents
+- productionize
