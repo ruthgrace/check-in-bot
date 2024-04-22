@@ -24,6 +24,29 @@ Run this file on mac (click on it): `/Applications/Python\ 3.*/Install\ Certific
 3. update slack bot Event Subscriptions > Request URL setting with the ngrok URL, adding `/slack/events` on the end
 4. `python3 app.py`
 
+## production set up
+
+1. make sure you have your domain. mine is emojibot.ruthgracewong.com
+2. clone this repo to /var/www/
+3. make SSL certificates for HTTPS
+```
+certbot certonly --force-renewal -a webroot -w /var/www/emojiBot -d www.emojibot.ruthgracewong.com -w /var/www/emojiBot -d emojibot.ruthgracewong.com
+```
+3. make sure that auto renewal of SSL cert is set up e.g. https://onepagezen.com/letsencrypt-auto-renew-certbot-apache/
+4. symlink `nginx/emojibot` file to nginx config
+```
+ln -s nginx/emojibot /etc/nginx/sites-available/emojibot
+ln -s /etc/nginx/sites-available/emojibot /etc/nginx/sites-enabled/emojibot
+```
+
+## production maintenance
+
+### manually renew SSL
+
+```
+sudo certbot renew
+```
+
 ## Ruth to do
 
-- productionize
+- set up nginx, docker container, systemd config
