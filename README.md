@@ -31,8 +31,8 @@ Run this file on mac (click on it): `/Applications/Python\ 3.*/Install\ Certific
 3. symlink `nginx/emojibot` file to nginx config
 
 ```
-ln -s /var/www/emojiBot/nginx/emojibot.bootstrap /etc/nginx/sites-available/emojibot
-ln -s /etc/nginx/sites-available/emojibot /etc/nginx/sites-enabled/emojibot
+ln -fs /var/www/emojiBot/nginx/emojibot.bootstrap /etc/nginx/sites-available/emojibot
+ln -fs /etc/nginx/sites-available/emojibot /etc/nginx/sites-enabled/emojibot
 ```
 
 4. run `sudo service nginx reload`
@@ -46,7 +46,7 @@ certbot certonly --force-renewal -a webroot -w /var/www/emojiBot -d www.emojibot
 6. now that the SSL certs are made, put up the production nginx config
 
 ```
-ln -s /var/www/emojiBot/nginx/emojibot /etc/nginx/sites-available/emojibot
+ln -fs /var/www/emojiBot/nginx/emojibot /etc/nginx/sites-available/emojibot
 ```
 
 ## production maintenance
