@@ -17,14 +17,6 @@
 # PUT THIS IN /etc/nginx/sites-available and /etc/nginx/sites-enabled
 
 server {
-    if ($host = www.emojibot.ruthgracewong.com) {
-        return 301 https://$host$request_uri;
-    } # managed by Certbot
-
-    if ($host = emojibot.ruthgracewong.com) {
-        return 301 https://$host$request_uri;
-    } # managed by Certbot
-
 
 	listen 80;
         listen [::]:80;
@@ -50,10 +42,6 @@ server {
         }
 
         location / {
-            proxy_set_header Host $http_host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_pass http://unix:/var/www/emojibot/emojibot.sock;
+            root /var/www/emojiBot;
         }
 }
