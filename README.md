@@ -43,6 +43,11 @@ certbot certonly --force-renewal -a webroot -w /var/www/emojiBot -d www.emojibot
 ```
 
 5. make sure that auto renewal of SSL cert is set up e.g. https://onepagezen.com/letsencrypt-auto-renew-certbot-apache/
+6. now that the SSL certs are made, put up the production nginx config
+
+```
+ln -s /var/www/emojiBot/nginx/emojibot /etc/nginx/sites-available/emojibot
+```
 
 ## production maintenance
 
