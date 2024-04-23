@@ -25,23 +25,4 @@ server {
         location ~ /.well-known {
             root /var/www/emojiBot;
         }
-        location / {
-            return 301 https://$host$request_uri;
-        }
-}
-
-server {
-        listen 443 ssl;
-	server_name emojibot.ruthgracewong.com www.emojibot.ruthgracewong.com;
-    ssl_certificate /etc/letsencrypt/live/www.emojibot.ruthgracewong.com/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/www.emojibot.ruthgracewong.com/privkey.pem; # managed by Certbot
-
-
-        location ~ /static {
-            root /var/www/emojiBot;
-        }
-
-        location / {
-            root /var/www/emojiBot;
-        }
 }
