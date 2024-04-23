@@ -25,7 +25,7 @@ Run this file on mac (click on it): `/Applications/Python\ 3.*/Install\ Certific
 4. `python3 app.py`
 
 ## production set up
-
+0. my old server is Ubuntu 16 and I'm too lazy to upgrade it,but I also want to be able to use fstrings; instructions to install python3.7 on Ubuntu 16 here https://stackoverflow.com/questions/77005109/how-do-i-install-python3-7-on-ubuntu-16
 1. make sure you have your domain. mine is emojibot.ruthgracewong.com (subdomain managed via digital ocean)
 2. clone this repo to /var/www/
 3. symlink `nginx/emojibot` file to nginx config

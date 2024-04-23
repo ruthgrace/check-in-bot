@@ -1,10 +1,10 @@
-import tokens
-
+import importlib
 from openai import OpenAI
 import os
 import re
-# Use the package we installed
 from slack_bolt import App
+importlib.import_module("token")
+
 ai_client = OpenAI(
     api_key=tokens.open_ai_key,
 )
