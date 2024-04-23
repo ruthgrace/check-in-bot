@@ -52,12 +52,13 @@ sudo service nginx reload
 7. set up process manager by symlinking emojibot.service to `/etc/systemd/system/`
 
 ```
-ln -fs /var/www/emojibot.service /etc/systemd/system/emojibot.service
+sudo ln -fs /var/www/emojiBot/emojibot.service /etc/systemd/system/emojibot.service
 ```
 
 8. start the service
 
 ```
+sudo systemctl daemon-reload
 sudo service emojibot start
 ```
 
