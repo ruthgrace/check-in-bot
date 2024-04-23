@@ -31,6 +31,7 @@ Run this file on mac (click on it): `/Applications/Python\ 3.*/Install\ Certific
 ```
 python3 -m venv .venv
 source .venv/bin/activate
+pip install --upgrade pip
 pip3 install -r requirements.txt
 sudo chown -R www-data:www-data .venv
 ```
