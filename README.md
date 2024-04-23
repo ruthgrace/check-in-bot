@@ -28,16 +28,20 @@ Run this file on mac (click on it): `/Applications/Python\ 3.*/Install\ Certific
 
 1. make sure you have your domain. mine is emojibot.ruthgracewong.com (subdomain managed via digital ocean)
 2. clone this repo to /var/www/
-3. make SSL certificates for HTTPS
+3. symlink `nginx/emojibot` file to nginx config
+
+```
+ln -s /var/www/emojiBot/nginx/emojibot /etc/nginx/sites-available/emojibot
+ln -s /etc/nginx/sites-available/emojibot /etc/nginx/sites-enabled/emojibot
+```
+
+4. make SSL certificates for HTTPS
+
 ```
 certbot certonly --force-renewal -a webroot -w /var/www/emojiBot -d www.emojibot.ruthgracewong.com -w /var/www/emojiBot -d emojibot.ruthgracewong.com
 ```
-3. make sure that auto renewal of SSL cert is set up e.g. https://onepagezen.com/letsencrypt-auto-renew-certbot-apache/
-4. symlink `nginx/emojibot` file to nginx config
-```
-ln -s nginx/emojibot /etc/nginx/sites-available/emojibot
-ln -s /etc/nginx/sites-available/emojibot /etc/nginx/sites-enabled/emojibot
-```
+
+5. make sure that auto renewal of SSL cert is set up e.g. https://onepagezen.com/letsencrypt-auto-renew-certbot-apache/
 
 ## production maintenance
 
