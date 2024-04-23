@@ -6,8 +6,9 @@ automatically adds emoji reacts to each message in channel
 
 1. add bot_token with string value of oauth token to tokens.py
 2. make venv `python3 -m venv .venv`
-3. install ngrok https://ngrok.com/download
-4. `pip install -r requirements.txt`
+3. activate `source .venv/bin/activate`
+4. install ngrok https://ngrok.com/download
+5. `pip install -r requirements.txt`
 
 reference tutorial: https://api.slack.com/start/building/bolt-python
 
@@ -26,9 +27,16 @@ Run this file on mac (click on it): `/Applications/Python\ 3.*/Install\ Certific
 
 ## production set up
 0. my old server is Ubuntu 16 and I'm too lazy to upgrade it,but I also want to be able to use fstrings; instructions to install python3.7 on Ubuntu 16 here https://stackoverflow.com/questions/77005109/how-do-i-install-python3-7-on-ubuntu-16
-1. make sure you have your domain. mine is emojibot.ruthgracewong.com (subdomain managed via digital ocean)
-2. clone this repo to /var/www/
-3. symlink `nginx/emojibot` file to nginx config
+1. clone this repo to /var/www/
+2. install python deps
+```
+python3.7 -m venv .venv
+source .venv/bin/activate
+pip3.7 install -r requirements.txt
+sudo chown -R www-data:www-data .venv
+```
+3. make sure you have your domain. mine is emojibot.ruthgracewong.com (subdomain managed via digital ocean)
+4. symlink `nginx/emojibot` file to nginx config
 
 ```
 sudo ln -fs /var/www/emojiBot/nginx/emojibot.bootstrap /etc/nginx/sites-available/emojibot
@@ -72,4 +80,4 @@ sudo certbot renew
 
 ## Ruth to do
 
-- set up nginx, docker container, systemd config
+- set up python venv properly in production
