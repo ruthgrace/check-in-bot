@@ -1,0 +1,14 @@
+[Unit]
+Description=Python app for automatically adding emoji reacts to slack channels, runs on port 3000
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/emojibot
+ExecStart=/usr/bin/python3 app.py
+Restart=on-failure
+RestartSec=42s
+
+[Install]
+WantedBy=multi-user.target
