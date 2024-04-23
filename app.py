@@ -53,4 +53,4 @@ def emoji_react(client, event, logger):
 
 # Ready? Start your app!
 if __name__ == "__main__":
-    app.start(port=int(os.environ.get("PORT", 3000)))
+    app.start(port=3000)
