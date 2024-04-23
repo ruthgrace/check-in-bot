@@ -6,8 +6,9 @@ automatically adds emoji reacts to each message in channel
 
 1. add bot_token with string value of oauth token to tokens.py
 2. make venv `python3 -m venv .venv`
-3. install ngrok https://ngrok.com/download
-4. `pip install -r requirements.txt`
+3. activate `source .venv/bin/activate`
+4. install ngrok https://ngrok.com/download
+5. `pip install -r requirements.txt`
 
 reference tutorial: https://api.slack.com/start/building/bolt-python
 
@@ -30,7 +31,9 @@ Run this file on mac (click on it): `/Applications/Python\ 3.*/Install\ Certific
 2. install python deps
 ```
 python3.7 -m venv .venv
+source .venv/bin/activate
 pip3.7 install -r requirements.txt
+sudo chown -R www-data:www-data .venv
 ```
 3. make sure you have your domain. mine is emojibot.ruthgracewong.com (subdomain managed via digital ocean)
 4. symlink `nginx/emojibot` file to nginx config
