@@ -26,11 +26,13 @@ Run this file on mac (click on it): `/Applications/Python\ 3.*/Install\ Certific
 4. `python3 app.py`
 
 ## production set up
+0. my old server is Ubuntu 16 and I'm too lazy to upgrade it,but I also want to be able to use fstrings; instructions to install python3.7 on Ubuntu 16 here https://stackoverflow.com/questions/77005109/how-do-i-install-python3-7-on-ubuntu-16 . Make sure to run `./configure --enable-loadable-sqlite-extensions --enable-optimizations` before running make as per https://stackoverflow.com/questions/1210664/no-module-named-sqlite3
 1. clone this repo to /var/www/
 2. install python deps
 ```
 python3 -m venv .venv
 source .venv/bin/activate
+pip install --upgrade pip
 pip3 install -r requirements.txt
 sudo chown -R www-data:www-data .venv
 ```
