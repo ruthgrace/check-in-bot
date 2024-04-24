@@ -3,19 +3,28 @@ from openai import OpenAI
 import os
 import re
 from slack_bolt import App
+from slack_bolt.oauth.oauth_settings import OAuthSettings
+from slack_sdk.oauth.installation_store import FileInstallationStore
+from slack_sdk.oauth.state_store import FileOAuthStateStore
 tokens = importlib.import_module("tokens")
 
 ai_client = OpenAI(
     api_key=tokens.open_ai_key,
 )
 
-# Initialize your app with your bot token and signing secret
-app = App(
-    token=tokens.bot_token,
-    signing_secret=tokens.bot_signing_secret
+oauth_settings = OAuthSettings(
+    client_id=tokens.client_id,
+    client_secret=tokens.client_secret,
+    scopes=["groups:history", "groups:read", "groups:write", "groups:write.invites", "reactions:read", "reactions:write"],
+    installation_store=FileInstallationStore(base_dir="./data/installations"),
+    state_store=FileOAuthStateStore(expiration_seconds=600, base_dir="./data/states")
 )
 
-# New functionality
+app = App(
+    signing_secret=tokens.client_signing_secret,
+    oauth_settings=oauth_settings
+)
+
 @app.event("message")
 def emoji_react(client, event, logger):
   if "thread_ts" not in event.keys():
