@@ -3,7 +3,7 @@ from openai import OpenAI
 import os
 import re
 from slack_bolt import App
-importlib.import_module("token")
+tokens = importlib.import_module("tokens")
 
 ai_client = OpenAI(
     api_key=tokens.open_ai_key,

@@ -45,8 +45,8 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/www.emojibot.ruthgracewong.com/privkey.pem; # managed by Certbot
 
 
-        location ~ /static {
-            root /var/www/emojiBot;
+        location /slack {
+            proxy_pass  http://127.0.0.1:3000;
         }
 
         location / {
@@ -57,5 +57,6 @@ server {
             # proxy_set_header X-Forwarded-Proto $scheme;
             # proxy_pass http://unix:/var/www/emojibot/emojibot.sock;
         }
+
 }
 
