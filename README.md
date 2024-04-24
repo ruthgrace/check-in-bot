@@ -4,7 +4,12 @@ automatically adds emoji reacts to each message in channel
 
 ## dev setup
 
-1. add bot_token with string value of oauth token to tokens.py
+1. add tokens.py with contents (fill in tokens)
+```
+bot_token = "fill-in-your-bot-token"
+bot_signing_secret = "fill-in-your-bot-signing-secret"
+open_ai_key = "fill-in-your-openai-key"
+```
 2. make venv `python3 -m venv .venv`
 3. activate `source .venv/bin/activate`
 4. install ngrok https://ngrok.com/download
@@ -28,7 +33,13 @@ Run this file on mac (click on it): `/Applications/Python\ 3.*/Install\ Certific
 ## production set up
 0. my old server is Ubuntu 16 and I'm too lazy to upgrade it,but I also want to be able to use fstrings; instructions to install python3.7 on Ubuntu 16 here https://stackoverflow.com/questions/77005109/how-do-i-install-python3-7-on-ubuntu-16 . Make sure to run `./configure --enable-loadable-sqlite-extensions --enable-optimizations` before running make as per https://stackoverflow.com/questions/1210664/no-module-named-sqlite3
 1. clone this repo to /var/www/
-2. install python deps
+2. add tokens.py with contents (fill in tokens)
+```
+bot_token = "fill-in-your-bot-token"
+bot_signing_secret = "fill-in-your-bot-signing-secret"
+open_ai_key = "fill-in-your-openai-key"
+```
+3. install python deps
 ```
 python3 -m venv .venv
 source .venv/bin/activate
