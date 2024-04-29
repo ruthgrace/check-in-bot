@@ -2,7 +2,6 @@ import importlib
 from openai import OpenAI
 import os
 import re
-from supabase import create_client, Client
 from slack_bolt import App
 from slack_bolt.oauth.oauth_settings import OAuthSettings
 from slack_sdk.oauth.installation_store import FileInstallationStore
@@ -12,21 +11,6 @@ tokens = importlib.import_module("tokens")
 ai_client = OpenAI(
     api_key=tokens.open_ai_key,
 )
-
-db_url: str = os.environ.get("SUPABASE_URL")
-db_key: str = os.environ.get("SUPABASE_KEY")
-supabase: Client = create_client(db_url, db_key)
-
-# response = supabase.table('countries').select("*").execute()
-
-# data, count = supabase.table('countries')
-#   .insert({"id": 1, "name": "Denmark"})
-#   .execute()
-
-# upsert
-# data, count = supabase.table('countries')
-#   .upsert({'id': 1, 'name': 'Australia'})
-#   .execute()
 
 oauth_settings = OAuthSettings(
     client_id=tokens.client_id,
