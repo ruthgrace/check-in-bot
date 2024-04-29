@@ -20,9 +20,9 @@ server {
 
 	listen 80;
         listen [::]:80;
-	server_name emojibot.ruthgracewong.com www.emojibot.ruthgracewong.com;
+	server_name check-in-bot.ruthgracewong.com www.check-in-bot.ruthgracewong.com;
 
         location ~ /.well-known {
-            root /var/www/emojiBot;
+            root /var/www/check-in-bot;
         }
 }

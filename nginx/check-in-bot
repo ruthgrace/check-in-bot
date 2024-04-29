@@ -17,21 +17,21 @@
 # PUT THIS IN /etc/nginx/sites-available and /etc/nginx/sites-enabled
 
 server {
-    if ($host = www.emojibot.ruthgracewong.com) {
+    if ($host = www.check-in-bot.ruthgracewong.com) {
         return 301 https://$host$request_uri;
     } # managed by Certbot
 
-    if ($host = emojibot.ruthgracewong.com) {
+    if ($host = check-in-bot.ruthgracewong.com) {
         return 301 https://$host$request_uri;
     } # managed by Certbot
 
 
 	listen 80;
         listen [::]:80;
-	server_name emojibot.ruthgracewong.com www.emojibot.ruthgracewong.com;
+	server_name check-in-bot.ruthgracewong.com www.check-in-bot.ruthgracewong.com;
 
         location ~ /.well-known {
-            root /var/www/emojiBot;
+            root /var/www/check-in-bot;
         }
         location / {
             return 301 https://$host$request_uri;
@@ -40,9 +40,9 @@ server {
 
 server {
         listen 443 ssl;
-	server_name emojibot.ruthgracewong.com www.emojibot.ruthgracewong.com;
-    ssl_certificate /etc/letsencrypt/live/www.emojibot.ruthgracewong.com/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/www.emojibot.ruthgracewong.com/privkey.pem; # managed by Certbot
+	server_name check-in-bot.ruthgracewong.com www.check-in-bot.ruthgracewong.com;
+    ssl_certificate /etc/letsencrypt/live/www.check-in-bot.ruthgracewong.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/www.check-in-bot.ruthgracewong.com/privkey.pem; # managed by Certbot
 
 
         location /slack {
@@ -50,12 +50,12 @@ server {
         }
 
         location / {
-            root /var/www/emojiBot;
+            root /var/www/check-in-bot;
             # proxy_set_header Host $http_host;
             # proxy_set_header X-Real-IP $remote_addr;
             # proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             # proxy_set_header X-Forwarded-Proto $scheme;
-            # proxy_pass http://unix:/var/www/emojibot/emojibot.sock;
+            # proxy_pass http://unix:/var/www/check-in-bot/check-in-bot.sock;
         }
 
 }

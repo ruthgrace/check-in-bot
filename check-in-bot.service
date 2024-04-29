@@ -5,8 +5,8 @@ After=network.target
 [Service]
 User=www-data
 Group=www-data
-WorkingDirectory=/var/www/emojiBot
-ExecStart=/var/www/emojiBot/.venv/bin/python3 app.py
+WorkingDirectory=/var/www/check-in-bot
+ExecStart=/var/www/check-in-bot/.venv/bin/python3 app.py
 Restart=on-failure
 RestartSec=42s
 
