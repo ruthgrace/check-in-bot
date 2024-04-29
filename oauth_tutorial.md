@@ -9,14 +9,10 @@ basically what we are setting up is that when the bot app is made installable by
 1. you need to add features to your app to keep track of tokens for all the workspaces that have authenticated with you
 2. when you get a request, you need to figure out which workspace it came from, and your response has to include the appropriate token.
 
-## Make your add to slack button
+## Make your redirect url
 
-https://api.slack.com/authentication/oauth-v2
+Now we will use the slack_bolt Python packge to make the /slack/oauth_redirect and /slack/install endpoints to process when someone adds your app to their workspace.
 
-<img width="759" alt="Screen Shot 2024-04-28 at 5 24 09 PM" src="https://github.com/ruthgrace/check-in-bot/assets/6069196/66f3bd76-a2df-41c5-a92e-a83fafc88def">
-
-I added my button to my index.html page.
+https://slack.dev/bolt-python/concepts#authenticating-oauth
 
 ## Set up data store
-
-I'm using supabase.
