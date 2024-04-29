@@ -13,7 +13,7 @@ basically what we are setting up is that when the bot app is made installable by
 
 https://api.slack.com/authentication/oauth-v2
 
-TODO - add image
+<img width="793" alt="," src="https://github.com/ruthgrace/check-in-bot/assets/6069196/5e438359-3e64-4be3-bee0-df25955d1ba6">
 
 I added my button to my index.html page.
 
