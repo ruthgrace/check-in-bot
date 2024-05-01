@@ -97,7 +97,3 @@ sudo service check-in-bot start
 ```
 sudo certbot renew
 ```
-
-## Ruth to do
-
-- set up python venv properly in production
