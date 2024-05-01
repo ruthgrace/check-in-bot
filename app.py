@@ -46,18 +46,18 @@ def emoji_react(client, event, logger):
       print(f"{reply}")
       reply = reply.strip().strip(":")
       emojis = re.split(r':\s*:*', reply)
+      for emoji in emojis:
+        try:
+          client.reactions_add(
+            channel=event["channel"],
+            timestamp=event["ts"],
+            name=f"{emoji}",
+          )
+        except Exception as e:
+          logger.error(f"Error publishing {emoji} emoji react: {repr(e)}")
+
     except Exception as e:
       logger.error(f"Error getting emojis from OpenAI: {repr(e)}")
-    for emoji in emojis:
-      try:
-        app.client.reactions_add(
-          channel=event["channel"],
-          timestamp=event["ts"],
-          name=f"{emoji}",
-          token=tokens.bot_token,
-        )
-      except Exception as e:
-        logger.error(f"Error publishing {emoji} emoji react: {repr(e)}")
 
 # Ready? Start your app!
 if __name__ == "__main__":
