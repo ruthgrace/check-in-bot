@@ -27,7 +27,7 @@ app = App(
 
 @app.event("message")
 def emoji_react(client, event, logger):
-  if "thread_ts" not in event.keys():
+  if "thread_ts" not in event.keys() or ("subtype" in event and event["subtype"] == "thread_broadcast"):
     try:
       chat_completion = ai_client.chat.completions.create(
           messages=[
@@ -55,7 +55,6 @@ def emoji_react(client, event, logger):
           )
         except Exception as e:
           logger.error(f"Error publishing {emoji} emoji react: {repr(e)}")
-
     except Exception as e:
       logger.error(f"Error getting emojis from OpenAI: {repr(e)}")
 
