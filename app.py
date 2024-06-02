@@ -1,7 +1,7 @@
 import importlib
 from openai import OpenAI
-import os
 import re
+import string
 from slack_bolt import App
 from slack_bolt.oauth.oauth_settings import OAuthSettings
 from slack_sdk.oauth.installation_store import FileInstallationStore
@@ -25,9 +25,45 @@ app = App(
     oauth_settings=oauth_settings
 )
 
+MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December"
+]
+def should_react(client, event, logger):
+  if "thread_ts" not in event.keys():
+    return True
+  if ("subtype" in event and event["subtype"] == "thread_broadcast"):
+    return True
+  # get parent message from thread_ts and check if it's the welcome message asking for intros in thread
+  try:
+    parent = client.conversations_replies(
+      channel=event["channel"],
+      ts=event["thread_ts"],
+      limit=1,
+    )
+    parent_message = parent["messages"][0]["text"]
+    # we want to emoji react to introduction messages in the welcome thread
+    if parent_message.startswith("Welcome to"):
+      words = parent_message.split()
+      if len(words) > 3 and words[2].translate(str.maketrans('', '', string.punctuation)) in MONTHS:
+        return True
+  except Exception as e:
+    logger.error(f"Error checking if threaded message is an intro: {repr(e)}")
+  return False
+
 @app.event("message")
 def emoji_react(client, event, logger):
-  if "thread_ts" not in event.keys() or ("subtype" in event and event["subtype"] == "thread_broadcast"):
+  if should_react(client, event, logger):
     try:
       chat_completion = ai_client.chat.completions.create(
           messages=[
