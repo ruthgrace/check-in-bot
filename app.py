@@ -1,7 +1,9 @@
 import importlib
-from openai import OpenAI
+import json
 import re
 import string
+
+from openai import OpenAI
 from slack_bolt import App
 from slack_bolt.oauth.oauth_settings import OAuthSettings
 from slack_sdk.oauth.installation_store import FileInstallationStore
@@ -39,11 +41,6 @@ MONTHS = [
   "November",
   "December"
 ]
-
-LOWERCASE_MONTHS = []
-
-for month in MONTHS:
-  LOWERCASE_MONTHS.append(month.lower())
 
 def is_dm(event):
   if "channel_type" in event.keys() and event["channel_type"] == "im":
@@ -86,13 +83,18 @@ def emoji_react(client, event, logger):
     logger.error(f"extracted channel {channel}")
     # need to get the channel name for the month
     if channel:
-      logger.error("try to upload file")
+      logger.error("try to get channel name")
+      channel_info = client.conversations_info(
+        channel=channel,
+      )
+      channel_name = channel_info.data['channel']['name']
+      logger.error(f"channel name {channel_name}. now try to upload file")
       client.files_upload_v2(
         channel=event["channel"],
-        title="MONTH entries",
-        filename="MONTH_check-ins.txt",
+        title=f"{channel_name} entries",
+        filename=f"{channel_name}_check-ins.txt",
         content="Hi there! This is a text file!",
-        initial_comment=f"Here are all the entries you wrote in {channel}:",
+        initial_comment=f"Here are all the entries you wrote in {channel_name}:",
       )
       logger.error("done trying to upload file")
     else:
