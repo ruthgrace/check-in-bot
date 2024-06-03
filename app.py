@@ -64,7 +64,6 @@ def get_check_ins(client, event, logger, channel_id):
     )
     check_in_entries = []
     parse_messages(check_in_entries, message_data, event['user'])
-    logger.error("messages parsed so far: {check_in_entries}")
     while message_data["has_more"]:
       cursor = message_data["response_metadata"]["next_cursor"]
       message_data = client.conversations_history(
@@ -73,6 +72,8 @@ def get_check_ins(client, event, logger, channel_id):
         cursor=cursor,
       )
       parse_messages(check_in_entries, message_data, event['user'])
+    # put entries in chronological order
+    check_in_entries.reverse()
     check_ins_string = "\n\n".join(entry for entry in check_in_entries)
     client.files_upload_v2(
       channel=event["channel"],
@@ -99,10 +100,12 @@ def parse_messages(check_in_entries, message_data, user):
       if "subtype" not in message.keys() or message["subtype"] != "channel_join":
         timestamp = int(message["ts"].split(".")[0])
         readable_date = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-        check_in_entries.append(readable_date)
         check_in_entries.append(message["text"])
+        check_in_entries.append(readable_date)
 
 def should_react(client, event, logger):
+  if "text" not in event.keys():
+    return False
   if "thread_ts" not in event.keys():
     return True
   if ("subtype" in event and event["subtype"] == "thread_broadcast"):
@@ -177,7 +180,8 @@ def respond_to_message(client, event, logger):
     return
   if should_react(client, event, logger):
     emojis = get_emojis(client, event, logger)
-    post_emojis(client, event, logger, emojis)
+    if emojis is not None:
+      post_emojis(client, event, logger, emojis)
 
 # Ready? Start your app!
 if __name__ == "__main__":
