@@ -92,13 +92,14 @@ def emoji_react(client, event, logger):
           limit=10
         )
         check_in_entries = []
+        # threaded replies are not included in conversation history by default
         messages = message_data["messages"]
         for message in messages:
-          # make sure it's from the user and not a threaded message
-          timestamp = int(message["ts"].split(".")[0])
-          readable_date = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-          check_in_entries.append(readable_date)
-          check_in_entries.append(message["text"])
+          if message["user"] == event['user']:
+            timestamp = int(message["ts"].split(".")[0])
+            readable_date = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+            check_in_entries.append(readable_date)
+            check_in_entries.append(message["text"])
         logger.error(f"messages parsed: {check_in_entries}")
         # get additional pages of results using cursor
         # convert check in entries from array to string
