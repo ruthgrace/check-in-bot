@@ -52,6 +52,45 @@ def extract_channel(message):
     return message[2:-2]
   return ""
 
+def get_check_ins(client, event, logger, channel_id):
+  try:
+    channel_info = client.conversations_info(
+      channel=channel_id,
+    )
+    channel_name = channel_info.data['channel']['name']
+    message_data = client.conversations_history(
+      channel=channel_id,
+      limit=10
+    )
+    check_in_entries = []
+    parse_messages(check_in_entries, message_data, event['user'])
+    logger.error("messages parsed so far: {check_in_entries}")
+    while message_data["has_more"]:
+      cursor = message_data["response_metadata"]["next_cursor"]
+      message_data = client.conversations_history(
+        channel=channel_id,
+        limit=10,
+        cursor=cursor,
+      )
+      parse_messages(check_in_entries, message_data, event['user'])
+    check_ins_string = "\n\n".join(entry for entry in check_in_entries)
+    client.files_upload_v2(
+      channel=event["channel"],
+      title=f"{channel_name} entries",
+      filename=f"{channel_name}_check-ins.txt",
+      content=check_ins_string,
+      initial_comment=f"Here are all the entries you wrote in {channel_name}:",
+    )
+  except Exception as e:
+    logger.error(f"Error getting entries from channel: {repr(e)}")
+    try:
+      client.chat_postMessage(
+        channel=event["channel"],
+        text="Sorry, I wasn't able to get your entries from that channel. I need to be added to a channel to be able to see it. Can you check to make sure I'm there, under Integrations?"
+      )
+    except Exception as e:
+      logger.error(f"Error posting about inability to get entries from channel: {repr(e)}")
+
 def parse_messages(check_in_entries, message_data, user):
   # threaded replies are not included in conversation history by default
   messages = message_data["messages"]
@@ -85,51 +124,48 @@ def should_react(client, event, logger):
     logger.error(f"Error checking if threaded message is an intro: {repr(e)}")
   return False
 
+def get_emojis(client, event, logger):
+  try:
+    chat_completion = ai_client.chat.completions.create(
+        messages=[
+          {
+            "role": "system",
+            "content": "You are a intelligent assistant. You respond to all of the following messages with a single line representing four unique emojis, formatted for Slack. The emojis should represent things mentioned in the messages, with only zero or one emojis representing sentiment. Note that text surrounded by ~ or where the line starts with a negative emoji like :no_pedestrians: means that the task mentioned there was not completed - please exclude these lines from your emoji output. If the messages express deep sadness or high stress, please use :people_hugging: to express comfort instead of something more specific for that part of the text. For example if someone's relative died please react with a hug instead of with an emoji representing the relative or death. Also, please use ungendered emojis, for example, :cook: is preferred over :female-cook: or :male-cook:",
+          }, 
+          {
+            "role": "user",
+            "content": event["text"]
+          }, 
+        ],
+        model="gpt-4",
+    )
+    reply = chat_completion.choices[0].message.content
+    print(f"{reply}")
+    reply = reply.strip().strip(":")
+    emojis = re.split(r':\s*:*', reply)
+    return emojis
+  except Exception as e:
+    logger.error(f"Error getting emojis from OpenAI: {repr(e)}")
+
+def post_emojis(client, event, logger, emojis):
+  for emoji in emojis:
+    try:
+      client.reactions_add(
+        channel=event["channel"],
+        timestamp=event["ts"],
+        name=f"{emoji}",
+      )
+    except Exception as e:
+      logger.error(f"Error publishing {emoji} emoji react: {repr(e)}")
+
 @app.event("message")
-def emoji_react(client, event, logger):
+def respond_to_message(client, event, logger):
   # direct messages to the bot are only used for extracting check ins
   if is_dm(event):
-    logger.error(f"user: {event['user']}")
     channel_id = extract_channel(event['text'])
     # need to get the channel name for the month
     if channel_id:
-      try:
-        channel_info = client.conversations_info(
-          channel=channel_id,
-        )
-        channel_name = channel_info.data['channel']['name']
-        message_data = client.conversations_history(
-          channel=channel_id,
-          limit=10
-        )
-        check_in_entries = []
-        parse_messages(check_in_entries, message_data, event['user'])
-        logger.error("messages parsed so far: {check_in_entries}")
-        while message_data["has_more"]:
-          cursor = message_data["response_metadata"]["next_cursor"]
-          message_data = client.conversations_history(
-            channel=channel_id,
-            limit=10,
-            cursor=cursor,
-          )
-          parse_messages(check_in_entries, message_data, event['user'])
-        check_ins_string = "\n\n".join(entry for entry in check_in_entries)
-        client.files_upload_v2(
-          channel=event["channel"],
-          title=f"{channel_name} entries",
-          filename=f"{channel_name}_check-ins.txt",
-          content=check_ins_string,
-          initial_comment=f"Here are all the entries you wrote in {channel_name}:",
-        )
-      except Exception as e:
-        logger.error(f"Error getting entries from channel: {repr(e)}")
-        try:
-          client.chat_postMessage(
-            channel=event["channel"],
-            text="Sorry, I wasn't able to get your entries from that channel. I need to be added to a channel to be able to see it. Can you check to make sure I'm there, under Integrations?"
-          )
-        except Exception as e:
-          logger.error(f"Error posting about inability to get entries from channel: {repr(e)}")
+      get_check_ins(client, event, logger, channel_id)
     else:
       try:
         client.chat_postMessage(
@@ -138,38 +174,10 @@ def emoji_react(client, event, logger):
         )
       except Exception as e:
         logger.error(f"Error posting about inability to parse channel: {repr(e)}")
-
     return
   if should_react(client, event, logger):
-    try:
-      chat_completion = ai_client.chat.completions.create(
-          messages=[
-            {
-              "role": "system",
-              "content": "You are a intelligent assistant. You respond to all of the following messages with a single line representing four unique emojis, formatted for Slack. The emojis should represent things mentioned in the messages, with only zero or one emojis representing sentiment. Note that text surrounded by ~ or where the line starts with a negative emoji like :no_pedestrians: means that the task mentioned there was not completed - please exclude these lines from your emoji output. If the messages express deep sadness or high stress, please use :people_hugging: to express comfort instead of something more specific for that part of the text. For example if someone's relative died please react with a hug instead of with an emoji representing the relative or death. Also, please use ungendered emojis, for example, :cook: is preferred over :female-cook: or :male-cook:",
-            }, 
-            {
-              "role": "user",
-              "content": event["text"]
-            }, 
-          ],
-          model="gpt-4",
-      )
-      reply = chat_completion.choices[0].message.content
-      print(f"{reply}")
-      reply = reply.strip().strip(":")
-      emojis = re.split(r':\s*:*', reply)
-      for emoji in emojis:
-        try:
-          client.reactions_add(
-            channel=event["channel"],
-            timestamp=event["ts"],
-            name=f"{emoji}",
-          )
-        except Exception as e:
-          logger.error(f"Error publishing {emoji} emoji react: {repr(e)}")
-    except Exception as e:
-      logger.error(f"Error getting emojis from OpenAI: {repr(e)}")
+    emojis = get_emojis(client, event, logger)
+    post_emojis(client, event, logger, emojis)
 
 # Ready? Start your app!
 if __name__ == "__main__":
