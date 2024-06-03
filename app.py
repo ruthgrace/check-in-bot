@@ -39,9 +39,17 @@ MONTHS = [
   "November",
   "December"
 ]
-def should_react(client, event, logger):
+
+def is_dm(event):
   if "channel_type" in event.keys() and event["channel_type"] == "im":
-    return False
+    return True
+
+def extract_channel(message):
+  if message.startswith("<#") and message.endswith("|>"):
+    return message[2:-2]
+  return ""
+
+def should_react(client, event, logger):
   if "thread_ts" not in event.keys():
     return True
   if ("subtype" in event and event["subtype"] == "thread_broadcast"):
@@ -65,12 +73,12 @@ def should_react(client, event, logger):
 
 @app.event("message")
 def emoji_react(client, event, logger):
-  if "text" in event.keys():
-    logger.error(f"{event['text']}")
-    logger.error(f"type of this event is {event['type']}")
-    logger.error(f"channel of this event is {event['channel']}")
-    logger.error(f"channel type of this event is {event['channel_type']}")
-    logger.error(f"keys {event.keys()}")
+  # direct messages to the bot are only used for extracting check ins
+  if is_dm(event):
+    logger.error(f"event['text']")
+    logger.error(f"event.keys()")
+    logger.error(f"result of channel extraction: {extract_channel(event['text'])}")
+    return
   if should_react(client, event, logger):
     try:
       chat_completion = ai_client.chat.completions.create(
