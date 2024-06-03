@@ -95,6 +95,11 @@ def emoji_react(client, event, logger):
         initial_comment=f"Here are all the entries you wrote in {channel}:",
       )
       logger.error("done trying to upload file")
+    else:
+      client.chat_postMessage(
+        channel=event["channel"],
+        text="Sorry, I don't understand. You can send me the name of a channel (starting with #) and I will respond with a text file that has all your check-in entries from that channel."
+      )
     return
   if should_react(client, event, logger):
     try:
