@@ -77,6 +77,7 @@ def should_react(client, event, logger):
 def emoji_react(client, event, logger):
   # direct messages to the bot are only used for extracting check ins
   if is_dm(event):
+    logger.error(f"user: {event['user']}")
     channel_id = extract_channel(event['text'])
     # need to get the channel name for the month
     if channel_id:
@@ -85,6 +86,20 @@ def emoji_react(client, event, logger):
           channel=channel_id,
         )
         channel_name = channel_info.data['channel']['name']
+        message_data = client.conversations_history(
+          channel=channel_id,
+          limit=10
+        )
+        check_in_entries = []
+        messages = message_data["messages"]
+        for message in messages:
+          # make sure it's from the user and not a threaded message
+          # convert to human readable date
+          check_in_entries.append(message["ts"])
+          check_in_entries.append(message["text"])
+        logger.error(f"messages parsed: {check_in_entries}")
+        # get additional pages of results using cursor
+        # convert check in entries from array to string
         client.files_upload_v2(
           channel=event["channel"],
           title=f"{channel_name} entries",
@@ -94,11 +109,22 @@ def emoji_react(client, event, logger):
         )
       except Exception as e:
         logger.error(f"Error getting entries from channel: {repr(e)}")
+        try:
+          client.chat_postMessage(
+            channel=event["channel"],
+            text="Sorry, I wasn't able to get your entries from that channel. I need to be added to a channel to be able to see it. Can you check to make sure I'm there, under Integrations?"
+          )
+        except Exception as e:
+          logger.error(f"Error posting about inability to get entries from channel: {repr(e)}")
     else:
-      client.chat_postMessage(
-        channel=event["channel"],
-        text="Sorry, I don't understand. You can send me the name of a channel (starting with #) and I will respond with a text file that has all your check-in entries from that channel."
-      )
+      try:
+        client.chat_postMessage(
+          channel=event["channel"],
+          text="Sorry, I don't understand. You can send me the name of a channel (starting with #) and I will respond with a text file that has all your check-in entries from that channel."
+        )
+      except Exception as e:
+        logger.error(f"Error posting about inability to parse channel: {repr(e)}")
+
     return
   if should_react(client, event, logger):
     try:
