@@ -3,6 +3,7 @@ import json
 import re
 import string
 
+from datetime import datetime
 from openai import OpenAI
 from slack_bolt import App
 from slack_bolt.oauth.oauth_settings import OAuthSettings
@@ -94,8 +95,9 @@ def emoji_react(client, event, logger):
         messages = message_data["messages"]
         for message in messages:
           # make sure it's from the user and not a threaded message
-          # convert to human readable date
-          check_in_entries.append(message["ts"])
+          timestamp = int(message["ts"].split(".")[0])
+          readable_date = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+          check_in_entries.append(readable_date)
           check_in_entries.append(message["text"])
         logger.error(f"messages parsed: {check_in_entries}")
         # get additional pages of results using cursor
