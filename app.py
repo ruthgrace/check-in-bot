@@ -40,6 +40,11 @@ MONTHS = [
   "December"
 ]
 
+LOWERCASE_MONTHS = []
+
+for month in MONTHS:
+  LOWERCASE_MONTHS.append(month.lower())
+
 def is_dm(event):
   if "channel_type" in event.keys() and event["channel_type"] == "im":
     return True
@@ -75,9 +80,21 @@ def should_react(client, event, logger):
 def emoji_react(client, event, logger):
   # direct messages to the bot are only used for extracting check ins
   if is_dm(event):
-    logger.error(f"event['text']")
-    logger.error(f"event.keys()")
-    logger.error(f"result of channel extraction: {extract_channel(event['text'])}")
+    logger.error(f"{event['text']}")
+    logger.error(f"{event.keys()}")
+    channel = extract_channel(event['text'])
+    logger.error(f"extracted channel {channel}")
+    # need to get the channel name for the month
+    if channel:
+      logger.error("try to upload file")
+      client.files_upload_v2(
+        channel=event["channel"],
+        title="MONTH entries",
+        filename="MONTH_check-ins.txt",
+        content="Hi there! This is a text file!",
+        initial_comment=f"Here are all the entries you wrote in {channel}:",
+      )
+      logger.error("done trying to upload file")
     return
   if should_react(client, event, logger):
     try:
