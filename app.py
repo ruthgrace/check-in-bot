@@ -77,26 +77,23 @@ def should_react(client, event, logger):
 def emoji_react(client, event, logger):
   # direct messages to the bot are only used for extracting check ins
   if is_dm(event):
-    logger.error(f"{event['text']}")
-    logger.error(f"{event.keys()}")
-    channel = extract_channel(event['text'])
-    logger.error(f"extracted channel {channel}")
+    channel_id = extract_channel(event['text'])
     # need to get the channel name for the month
-    if channel:
-      logger.error("try to get channel name")
-      channel_info = client.conversations_info(
-        channel=channel,
-      )
-      channel_name = channel_info.data['channel']['name']
-      logger.error(f"channel name {channel_name}. now try to upload file")
-      client.files_upload_v2(
-        channel=event["channel"],
-        title=f"{channel_name} entries",
-        filename=f"{channel_name}_check-ins.txt",
-        content="Hi there! This is a text file!",
-        initial_comment=f"Here are all the entries you wrote in {channel_name}:",
-      )
-      logger.error("done trying to upload file")
+    if channel_id:
+      try:
+        channel_info = client.conversations_info(
+          channel=channel_id,
+        )
+        channel_name = channel_info.data['channel']['name']
+        client.files_upload_v2(
+          channel=event["channel"],
+          title=f"{channel_name} entries",
+          filename=f"{channel_name}_check-ins.txt",
+          content="Hi there! This is a text file!",
+          initial_comment=f"Here are all the entries you wrote in {channel_name}:",
+        )
+      except Exception as e:
+        logger.error(f"Error getting entries from channel: {repr(e)}")
     else:
       client.chat_postMessage(
         channel=event["channel"],
