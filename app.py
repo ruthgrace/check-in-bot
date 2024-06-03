@@ -52,6 +52,17 @@ def extract_channel(message):
     return message[2:-2]
   return ""
 
+def parse_messages(check_in_entries, message_data, user):
+  # threaded replies are not included in conversation history by default
+  messages = message_data["messages"]
+  for message in messages:
+    if message["user"] == user:
+      if "subtype" not in message.keys() or message["subtype"] != "channel_join":
+        timestamp = int(message["ts"].split(".")[0])
+        readable_date = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+        check_in_entries.append(readable_date)
+        check_in_entries.append(message["text"])
+
 def should_react(client, event, logger):
   if "thread_ts" not in event.keys():
     return True
@@ -92,22 +103,22 @@ def emoji_react(client, event, logger):
           limit=10
         )
         check_in_entries = []
-        # threaded replies are not included in conversation history by default
-        messages = message_data["messages"]
-        for message in messages:
-          if message["user"] == event['user']:
-            timestamp = int(message["ts"].split(".")[0])
-            readable_date = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-            check_in_entries.append(readable_date)
-            check_in_entries.append(message["text"])
-        logger.error(f"messages parsed: {check_in_entries}")
-        # get additional pages of results using cursor
-        # convert check in entries from array to string
+        parse_messages(check_in_entries, message_data, event['user'])
+        logger.error("messages parsed so far: {check_in_entries}")
+        while message_data["has_more"]:
+          cursor = message_data["response_metadata"]["next_cursor"]
+          message_data = client.conversations_history(
+            channel=channel_id,
+            limit=10,
+            cursor=cursor,
+          )
+          parse_messages(check_in_entries, message_data, event['user'])
+        check_ins_string = "\n\n".join(entry for entry in check_in_entries)
         client.files_upload_v2(
           channel=event["channel"],
           title=f"{channel_name} entries",
           filename=f"{channel_name}_check-ins.txt",
-          content="Hi there! This is a text file!",
+          content=check_ins_string,
           initial_comment=f"Here are all the entries you wrote in {channel_name}:",
         )
       except Exception as e:
