@@ -40,6 +40,8 @@ MONTHS = [
   "December"
 ]
 def should_react(client, event, logger):
+  if "channel_type" in event.keys() and event["channel_type"] == "im":
+    return False
   if "thread_ts" not in event.keys():
     return True
   if ("subtype" in event and event["subtype"] == "thread_broadcast"):
@@ -63,6 +65,12 @@ def should_react(client, event, logger):
 
 @app.event("message")
 def emoji_react(client, event, logger):
+  if "text" in event.keys():
+    logger.error(f"{event['text']}")
+    logger.error(f"type of this event is {event['type']}")
+    logger.error(f"channel of this event is {event['channel']}")
+    logger.error(f"channel type of this event is {event['channel_type']}")
+    logger.error(f"keys {event.keys()}")
   if should_react(client, event, logger):
     try:
       chat_completion = ai_client.chat.completions.create(
