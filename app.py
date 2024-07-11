@@ -43,6 +43,13 @@ MONTHS = [
   "December"
 ]
 
+NO_REACT_EVENTS = [
+  "channel_leave",
+  "channel_join",
+  "channel_archive",
+  "channel_unarchive"
+]
+
 def is_dm(event):
   if "channel_type" in event.keys() and event["channel_type"] == "im":
     return True
@@ -106,6 +113,8 @@ def parse_messages(check_in_entries, message_data, user):
 def should_react(client, event, logger):
   if "text" not in event.keys():
     return False
+  if "subtype" in event and event["subtype"] in NO_REACT_EVENTS:
+    return False
   if "thread_ts" not in event.keys():
     return True
   if ("subtype" in event and event["subtype"] == "thread_broadcast"):
@@ -143,7 +152,6 @@ def get_emojis(client, event, logger):
         model="gpt-4",
     )
     reply = chat_completion.choices[0].message.content
-    print(f"{reply}")
     reply = reply.strip().strip(":")
     emojis = re.split(r':\s*:*', reply)
     return emojis
