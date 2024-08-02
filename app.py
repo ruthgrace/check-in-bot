@@ -159,13 +159,17 @@ def get_emojis(client, event, logger):
     logger.error(f"Error getting emojis from OpenAI: {repr(e)}")
 
 def post_emojis(client, event, logger, emojis):
+  emoji_limit = 5
   for emoji in emojis:
+    if emoji_limit == 0:
+      break;
     try:
       client.reactions_add(
         channel=event["channel"],
         timestamp=event["ts"],
         name=f"{emoji}",
       )
+      emoji_limit -= 1
     except Exception as e:
       logger.error(f"Error publishing {emoji} emoji react: {repr(e)}")
 
