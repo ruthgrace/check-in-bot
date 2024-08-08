@@ -1,7 +1,6 @@
 import importlib
-import json
 import re
-import string
+import stringprep
 
 from datetime import datetime
 from openai import OpenAI
@@ -10,6 +9,7 @@ from slack_bolt.oauth.oauth_settings import OAuthSettings
 from slack_sdk.oauth.installation_store import FileInstallationStore
 from slack_sdk.oauth.state_store import FileOAuthStateStore
 tokens = importlib.import_module("tokens")
+
 
 ai_client = OpenAI(
     api_key=tokens.open_ai_key,
@@ -25,8 +25,10 @@ oauth_settings = OAuthSettings(
 
 app = App(
     signing_secret=tokens.client_signing_secret,
-    oauth_settings=oauth_settings
+    oauth_settings=oauth_settings,
+    name="check-in-bot"
 )
+
 
 MONTHS = [
   "January",

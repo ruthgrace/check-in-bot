@@ -62,28 +62,28 @@ sudo ln -fs /var/www/check-in-bot/nginx/check-in-bot.bootstrap /etc/nginx/sites-
 sudo ln -fs /etc/nginx/sites-available/check-in-bot /etc/nginx/sites-enabled/check-in-bot
 ```
 
-4. run `sudo service nginx reload`
-5. make SSL certificates for HTTPS
+5. run `sudo service nginx reload`
+6. make SSL certificates for HTTPS
 
 ```
 certbot certonly --force-renewal -a webroot -w /var/www/check-in-bot -d www.check-in-bot.ruthgracewong.com -w /var/www/check-in-bot -d check-in-bot.ruthgracewong.com
 ```
 
-5. make sure that auto renewal of SSL cert is set up e.g. https://onepagezen.com/letsencrypt-auto-renew-certbot-apache/
-6. now that the SSL certs are made, put up the production nginx config
+7. make sure that auto renewal of SSL cert is set up e.g. https://onepagezen.com/letsencrypt-auto-renew-certbot-apache/
+8. now that the SSL certs are made, put up the production nginx config
 
 ```
 sudo ln -fs /var/www/check-in-bot/nginx/check-in-bot /etc/nginx/sites-available/check-in-bot
 sudo service nginx reload
 ```
 
-7. set up process manager by symlinking check-in-bot.service to `/etc/systemd/system/`
+9. set up process manager by symlinking check-in-bot.service to `/etc/systemd/system/`
 
 ```
 sudo ln -fs /var/www/check-in-bot/check-in-bot.service /etc/systemd/system/check-in-bot.service
 ```
 
-8. start the service
+10. start the service
 
 ```
 sudo systemctl daemon-reload
