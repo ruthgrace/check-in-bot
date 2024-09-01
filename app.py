@@ -132,7 +132,7 @@ def should_react(client, event, logger):
     # we want to emoji react to introduction messages in the welcome thread
     if parent_message.startswith("Welcome to"):
       words = parent_message.split()
-      if len(words) > 3 and words[2].translate(str.maketrans('', ''), string.punctuation) in MONTHS:
+      if len(words) > 3 and words[2].translate(str.maketrans('', '', string.punctuation)) in MONTHS:
         return True
   except Exception as e:
     logger.error(f"Error checking if threaded message is an intro: {repr(e)}")
