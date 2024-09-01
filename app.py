@@ -1,6 +1,6 @@
 import importlib
 import re
-import stringprep
+import string
 
 from datetime import datetime
 from openai import OpenAI
