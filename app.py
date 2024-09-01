@@ -179,9 +179,7 @@ def post_emojis(client, event, logger, emojis):
 def respond_to_message(client, event, logger):
   # direct messages to the bot are only used for extracting check ins
   if is_dm(event):
-    logger.error(f"ruth debug - received DM with text {event['text']}")
     channel_id = extract_channel(event['text'])
-    logger.error(f"ruth debug - extracted channel id {channel_id}")
     # need to get the channel name for the month
     if channel_id:
       get_check_ins(client, event, logger, channel_id)
