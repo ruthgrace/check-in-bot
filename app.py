@@ -1,13 +1,13 @@
 import importlib
 import re
 import string
-
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from openai import OpenAI
 from slack_bolt import App
 from slack_bolt.oauth.oauth_settings import OAuthSettings
 from slack_sdk.oauth.installation_store import FileInstallationStore
 from slack_sdk.oauth.state_store import FileOAuthStateStore
+from slack_sdk.models.blocks import *
 tokens = importlib.import_module("tokens")
 
 
@@ -18,7 +18,15 @@ ai_client = OpenAI(
 oauth_settings = OAuthSettings(
     client_id=tokens.client_id,
     client_secret=tokens.client_secret,
-    scopes=["groups:history", "groups:read", "groups:write", "groups:write.invites", "reactions:read", "reactions:write"],
+    scopes=[
+        "groups:history",
+        "groups:read",
+        "groups:write",
+        "groups:write.invites",
+        "reactions:read",
+        "reactions:write",
+        "app_home:opened"
+    ],
     installation_store=FileInstallationStore(base_dir="./data/installations"),
     state_store=FileOAuthStateStore(expiration_seconds=600, base_dir="./data/states")
 )
@@ -196,6 +204,70 @@ def respond_to_message(client, event, logger):
     emojis = get_emojis(client, event, logger)
     if emojis is not None:
       post_emojis(client, event, logger, emojis)
+
+def get_home_view(user_id: str):
+    """Create the home tab view"""
+    today = date.today()
+    next_month = (today.replace(day=1) + timedelta(days=32)).replace(day=1)
+    month_name = next_month.strftime("%B")
+    
+    blocks = [
+        HeaderBlock(
+            text=PlainTextObject(text="🏠 Check-in Bot Home")
+        ),
+        DividerBlock(),
+        SectionBlock(
+            text=MarkdownText(
+                text="*Welcome to Check-in Bot!* \nI help manage monthly check-in groups in your workspace."
+            )
+        ),
+        HeaderBlock(
+            text=PlainTextObject(text="📅 Monthly Schedule")
+        ),
+        SectionBlock(
+            text=MarkdownText(
+                text=(
+                    "*25th of each month:*\n"
+                    "• Announce signups for next month's groups\n"
+                    "• Look for :sun_with_face: or :star2: reactions to join\n\n"
+                    "*Last day of month:*\n"
+                    "• Create new channels for the month\n"
+                    "• Add participants to their groups\n\n"
+                    "*7th of each month:*\n"
+                    "• Send reminders to members who haven't posted\n\n"
+                    "*11th of each month:*\n"
+                    "• Remove inactive members"
+                )
+            )
+        ),
+        DividerBlock(),
+        SectionBlock(
+            text=MarkdownText(
+                text=f"*Next signup:* Sign-ups for {month_name}'s groups will open on the 25th!")
+        ),
+        DividerBlock(),
+        SectionBlock(
+            text=MarkdownText(
+                text="*Need help?*\nYou can DM me with a channel name (like #channel-name) and I'll send you all your check-ins from that channel!"
+            )
+        )
+    ]
+    
+    return {
+        "type": "home",
+        "blocks": blocks
+    }
+
+@app.event("app_home_opened")
+def update_home_tab(client, event, logger):
+    """Handle app home opened events"""
+    try:
+        client.views_publish(
+            user_id=event["user"],
+            view=get_home_view(event["user"])
+        )
+    except Exception as e:
+        logger.error(f"Error publishing home tab: {repr(e)}")
 
 # Ready? Start your app!
 if __name__ == "__main__":
