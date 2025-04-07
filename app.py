@@ -8,6 +8,14 @@ from slack_bolt.oauth.oauth_settings import OAuthSettings
 from slack_sdk.oauth.installation_store import FileInstallationStore
 from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.models.blocks import *
+import logging
+
+# Add this near the top of your file
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
 tokens = importlib.import_module("tokens")
 
 
@@ -19,13 +27,20 @@ oauth_settings = OAuthSettings(
     client_id=tokens.client_id,
     client_secret=tokens.client_secret,
     scopes=[
+        "channels:join",
+        "channels:manage",
+        "channels:read",
+        "channels:write.invites",
+        "chat:write",
+        "files:write",
         "groups:history",
         "groups:read",
         "groups:write",
         "groups:write.invites",
+        "im:history",
         "reactions:read",
         "reactions:write",
-        "app_home:opened"
+        "users:read"
     ],
     installation_store=FileInstallationStore(base_dir="./data/installations"),
     state_store=FileOAuthStateStore(expiration_seconds=600, base_dir="./data/states")
@@ -207,43 +222,12 @@ def respond_to_message(client, event, logger):
 
 def get_home_view(user_id: str):
     """Create the home tab view"""
-    today = date.today()
-    next_month = (today.replace(day=1) + timedelta(days=32)).replace(day=1)
-    month_name = next_month.strftime("%B")
-    
+    logging.info(f"Creating home view for user {user_id}")
     blocks = [
-        HeaderBlock(
-            text=PlainTextObject(text="🏠 Check-in Bot Home")
-        ),
-        DividerBlock(),
         SectionBlock(
             text=MarkdownText(
-                text="*Welcome to Check-in Bot!* \nI help manage monthly check-in groups in your workspace."
+                text="*Welcome to Check-in Bot!* 👋\n\nI help manage monthly check-in groups and add emoji reactions to encourage interaction between members."
             )
-        ),
-        HeaderBlock(
-            text=PlainTextObject(text="📅 Monthly Schedule")
-        ),
-        SectionBlock(
-            text=MarkdownText(
-                text=(
-                    "*25th of each month:*\n"
-                    "• Announce signups for next month's groups\n"
-                    "• Look for :sun_with_face: or :star2: reactions to join\n\n"
-                    "*Last day of month:*\n"
-                    "• Create new channels for the month\n"
-                    "• Add participants to their groups\n\n"
-                    "*7th of each month:*\n"
-                    "• Send reminders to members who haven't posted\n\n"
-                    "*11th of each month:*\n"
-                    "• Remove inactive members"
-                )
-            )
-        ),
-        DividerBlock(),
-        SectionBlock(
-            text=MarkdownText(
-                text=f"*Next signup:* Sign-ups for {month_name}'s groups will open on the 25th!")
         ),
         DividerBlock(),
         SectionBlock(
@@ -253,21 +237,32 @@ def get_home_view(user_id: str):
         )
     ]
     
-    return {
+    view = {
         "type": "home",
         "blocks": blocks
     }
+    logging.info(f"Generated home view: {view}")
+    return view
 
 @app.event("app_home_opened")
 def update_home_tab(client, event, logger):
     """Handle app home opened events"""
+    logger.info(f"App home opened event received: {event}")
     try:
-        client.views_publish(
+        # Check the event type
+        if event["tab"] != "home":
+            logger.info("Ignoring non-home tab event")
+            return
+            
+        logger.info(f"Publishing home view for user {event['user']}")
+        result = client.views_publish(
             user_id=event["user"],
             view=get_home_view(event["user"])
         )
+        logger.info(f"Successfully published home view: {result}")
     except Exception as e:
-        logger.error(f"Error publishing home tab: {repr(e)}")
+        logger.error(f"Error publishing home tab: {str(e)}")
+        logger.error(f"Full error details: {repr(e)}")
 
 # Ready? Start your app!
 if __name__ == "__main__":
