@@ -11,7 +11,7 @@ from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 import logging
-from workspace_store import get_workspace_info, update_workspace_admins, generate_admin_passcode, verify_admin_passcode
+from workspace_store import get_workspace_info, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair
 from home_tab import register_home_tab_handlers
 
 # Add this near the top of your file
@@ -208,12 +208,41 @@ def handle_admin_request(client, event, logger):
     """Handle 'king me' messages and admin verification"""
     text = event.get("text", "").strip().lower()
     
+    # Check if user is an admin for keep apart commands
+    workspace = get_workspace_info(event["team"])
+    if not workspace or "admins" not in workspace or event["user"] not in workspace["admins"]:
+        if text.startswith("keep apart"):
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="❌ Only administrators can use the 'keep apart' command."
+            )
+            return True
+        return False
+    
     if text == "king me":
         passcode = generate_admin_passcode(event["team"], event["user"])
         logger.info(f"Generating admin passcode for {event['user']} in team {event['team']}: {passcode}")
         client.chat_postMessage(
             channel=event["channel"],
             text=f"Please verify that you want to become an administrator by replying with the passcode seen in the server logs."
+        )
+        return True
+    
+    # Handle keep apart command
+    if text.startswith("keep apart"):
+        # Extract user IDs from mentions (format: <@U123ABC>)
+        mentions = re.findall(r'<@([A-Z0-9]+)>', event["text"])
+        if len(mentions) != 2:
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="❌ Please mention exactly two users to keep apart, like: keep apart @user1 @user2"
+            )
+            return True
+            
+        add_incompatible_pair(event["team"], mentions[0], mentions[1])
+        client.chat_postMessage(
+            channel=event["channel"],
+            text=f"✅ <@{mentions[0]}> and <@{mentions[1]}> will be kept apart in future check-in groups."
         )
         return True
     

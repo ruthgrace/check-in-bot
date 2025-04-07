@@ -16,6 +16,8 @@ def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
     # Get workspace info from the event context
     workspace = get_workspace_info(team_id)
     admin_text = ""
+    incompatible_text = ""
+    
     if workspace and workspace["admins"] and len(workspace["admins"]) > 0:
         admin_usernames = []
         for admin_id in workspace["admins"]:
@@ -26,6 +28,16 @@ def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
             except Exception as e:
                 logging.error(f"Error getting user info: {repr(e)}")
         admin_text = "\n\n*Administrators:*\n" + ", ".join(admin_usernames)
+        
+        # If current user is an admin, show incompatible pairs
+        if user_id in workspace["admins"]:
+            if workspace["incompatible_pairs"]:
+                pair_texts = []
+                for user1, user2 in workspace["incompatible_pairs"]:
+                    pair_texts.append(f"<@{user1}> and <@{user2}>")
+                incompatible_text = "\n\n*Users kept apart:*\n" + "\n".join(pair_texts)
+            else:
+                incompatible_text = "\n\n*Users kept apart:*\nNo users are currently being kept apart."
     else:
         admin_text = "\n\n*Administrators:*\nNo administrators found. You can become an administrator by messaging 'king me' to the check-in bot."
     blocks = [
@@ -53,7 +65,7 @@ def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": admin_text + "\n\nAdministrators can ask check-in-bot to keep certain users from being in the same check-in-group."
+                "text": admin_text + "\n\nAdministrators can ask check-in-bot to keep certain users from being in the same check-in-group." + incompatible_text
             }
         }
     ]

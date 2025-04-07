@@ -108,4 +108,24 @@ def verify_admin_passcode(team_id: str, user_id: str, passcode: str) -> bool:
             save_workspace_data(data)
             logging.info(f"User {user_id} verified as admin in workspace {team_id}")
             return True
-    return False 
+    return False
+
+def add_incompatible_pair(team_id: str, user1: str, user2: str):
+    """Add a pair of users that should be kept apart
+    
+    Args:
+        team_id: The workspace team ID
+        user1: First user ID (without the @ symbol)
+        user2: Second user ID (without the @ symbol)
+    """
+    data = get_workspace_info()
+    if team_id in data:
+        if "incompatible_pairs" not in data[team_id]:
+            data[team_id]["incompatible_pairs"] = []
+            
+        # Sort user IDs to ensure consistent storage
+        pair = tuple(sorted([user1, user2]))
+        if pair not in data[team_id]["incompatible_pairs"]:
+            data[team_id]["incompatible_pairs"].append(pair)
+            save_workspace_data(data)
+            logging.info(f"Added incompatible pair in workspace {team_id}: {user1} and {user2}") 
