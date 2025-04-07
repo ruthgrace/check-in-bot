@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 import pickle
 import random
+import re
 
 def save_workspace_data(data):
     """Save workspace data to pickle file"""
@@ -48,6 +49,7 @@ def ensure_workspace_exists(team_id: str, team_name: str):
             "team_name": team_name,
             "admins": [],
             "incompatible_pairs": [],
+            "channel_format": "check-ins-[year]-[month]",  # Default format
             "installed_at": datetime.now().isoformat()
         }
         save_workspace_data(data)
@@ -128,4 +130,54 @@ def add_incompatible_pair(team_id: str, user1: str, user2: str):
         if pair not in data[team_id]["incompatible_pairs"]:
             data[team_id]["incompatible_pairs"].append(pair)
             save_workspace_data(data)
-            logging.info(f"Added incompatible pair in workspace {team_id}: {user1} and {user2}") 
+            logging.info(f"Added incompatible pair in workspace {team_id}: {user1} and {user2}")
+
+def validate_channel_format(format_str: str) -> tuple:
+    """Validate channel format string
+    
+    Returns:
+        (is_valid, error_message)
+    """
+    required_tokens = ['[year]', '[month]']
+    optional_tokens = ['[number]']
+    
+    # Check for required tokens
+    for token in required_tokens:
+        if token not in format_str:
+            return False, f"Format must include {token}"
+            
+    # Check for invalid characters
+    invalid_chars = '<>&'
+    for char in invalid_chars:
+        if char in format_str:
+            return False, f"Format cannot include {char}"
+            
+    # Check that all [] tokens are valid
+    for token in re.findall(r'\[.*?\]', format_str):
+        if token not in required_tokens + optional_tokens:
+            return False, f"Invalid token: {token}"
+            
+    return True, ""
+
+def update_channel_format(team_id: str, format_str: str) -> tuple:
+    """Update the channel naming format for a workspace
+    
+    Args:
+        team_id: The workspace team ID
+        format_str: Format string for channel names
+        
+    Returns:
+        (success, error_message)
+    """
+    is_valid, error = validate_channel_format(format_str)
+    if not is_valid:
+        return False, error
+        
+    data = get_workspace_info()
+    if team_id in data:
+        data[team_id]["channel_format"] = format_str
+        save_workspace_data(data)
+        logging.info(f"Updated channel format for workspace {team_id}: {format_str}")
+        return True, ""
+        
+    return False, "Workspace not found" 

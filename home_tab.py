@@ -20,6 +20,7 @@ def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
     
     if workspace and workspace["admins"] and len(workspace["admins"]) > 0:
         admin_usernames = []
+        channel_format = workspace.get("channel_format", "[year]-[month]-[number]")
         for admin_id in workspace["admins"]:
             try:
                 # Get user info from Slack
@@ -38,6 +39,8 @@ def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
                 incompatible_text = "\n\n*Users kept apart:*\n" + "\n".join(pair_texts)
             else:
                 incompatible_text = "\n\n*Users kept apart:*\nNo users are currently being kept apart."
+            
+            incompatible_text += f"\n\n*Channel naming format:*\n{channel_format}\n_(Administrators can change this with 'set format [new format]')_"
     else:
         admin_text = "\n\n*Administrators:*\nNo administrators found. You can become an administrator by messaging 'king me' to the check-in bot."
     blocks = [

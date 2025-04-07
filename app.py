@@ -11,7 +11,7 @@ from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 import logging
-from workspace_store import get_workspace_info, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair
+from workspace_store import get_workspace_info, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, update_channel_format
 from home_tab import register_home_tab_handlers
 
 # Add this near the top of your file
@@ -244,6 +244,29 @@ def handle_admin_request(client, event, logger):
             channel=event["channel"],
             text=f"✅ <@{mentions[0]}> and <@{mentions[1]}> will be kept apart in future check-in groups."
         )
+        return True
+    
+    # Handle set format command
+    if text.startswith("set format"):
+        new_format = event["text"][len("set format"):].strip()
+        if not new_format:
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="❌ Please provide a format string, like: set format check-ins-[year]-[month] or builders-standups-[year]-[month]-[number]"
+            )
+            return True
+            
+        success, error = update_channel_format(event["team"], new_format)
+        if success:
+            client.chat_postMessage(
+                channel=event["channel"],
+                text=f"✅ Channel format updated to: {new_format}"
+            )
+        else:
+            client.chat_postMessage(
+                channel=event["channel"],
+                text=f"❌ Invalid format: {error}\nFormat must include [year] and [month]. [number] is optional."
+            )
         return True
     
     # Check if it's a passcode verification attempt
