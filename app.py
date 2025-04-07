@@ -7,7 +7,8 @@ from slack_bolt import App
 from slack_bolt.oauth.oauth_settings import OAuthSettings
 from slack_sdk.oauth.installation_store import FileInstallationStore
 from slack_sdk.oauth.state_store import FileOAuthStateStore
-from slack_sdk.models.blocks import *
+from slack_sdk.models.blocks import SectionBlock, DividerBlock
+from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 import logging
 
 # Add this near the top of your file
@@ -224,17 +225,23 @@ def get_home_view(user_id: str):
     """Create the home tab view"""
     logging.info(f"Creating home view for user {user_id}")
     blocks = [
-        SectionBlock(
-            text=MarkdownText(
-                text="*Welcome to Check-in Bot!* 👋\n\nI help manage monthly check-in groups and add emoji reactions to encourage interaction between members."
-            )
-        ),
-        DividerBlock(),
-        SectionBlock(
-            text=MarkdownText(
-                text="*Need help?*\nYou can DM me with a channel name (like #channel-name) and I'll send you all your check-ins from that channel!"
-            )
-        )
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*Welcome to Check-in Bot!* 👋\n\nI help manage monthly check-in groups and add emoji reactions to encourage interaction between members."
+            }
+        },
+        {
+            "type": "divider"
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*Need help?*\nYou can DM me with a channel name (like #channel-name) and I'll send you all your check-ins from that channel!"
+            }
+        }
     ]
     
     view = {

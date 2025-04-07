@@ -97,3 +97,15 @@ sudo service check-in-bot start
 ```
 sudo certbot renew
 ```
+
+## to do
+
+* set up a pickle with info about each workspace
+** admin users
+** list of users to keep apart
+* make it so that someone can become admin by putting in chat a password that's output in logs on the server
+* Have different app home page for admin versus non admin
+* announce new groups on the 25th of previous month
+* add people to new groups automatically with welcome message
+* remind people who haven't posted by the 7th of the month
+* kick people who haven't posted by the 11th of the month
