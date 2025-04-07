@@ -239,7 +239,7 @@ def get_home_view(user_id: str):
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "*Need help?*\nYou can DM me with a channel name (like #channel-name) and I'll send you all your check-ins from that channel!"
+                "text": "*Want to save your check-ins?*\nYou can DM me with a channel name (like #channel-name) and I'll send you all your check-ins from that channel! Note that threaded replies are not included unless they were also posted as top-level channel messages."
             }
         }
     ]
