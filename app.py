@@ -10,6 +10,8 @@ from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 import logging
+from workspace_store import get_workspace_info, update_workspace_admins
+from home_tab import register_home_tab_handlers
 
 # Add this near the top of your file
 logging.basicConfig(
@@ -31,6 +33,7 @@ oauth_settings = OAuthSettings(
         "channels:join",
         "channels:manage",
         "channels:read",
+        "channels:history",
         "channels:write.invites",
         "chat:write",
         "files:write",
@@ -41,7 +44,8 @@ oauth_settings = OAuthSettings(
         "im:history",
         "reactions:read",
         "reactions:write",
-        "users:read"
+        "users:read",
+        "team:read"
     ],
     installation_store=FileInstallationStore(base_dir="./data/installations"),
     state_store=FileOAuthStateStore(expiration_seconds=600, base_dir="./data/states")
@@ -221,56 +225,12 @@ def respond_to_message(client, event, logger):
     if emojis is not None:
       post_emojis(client, event, logger, emojis)
 
-def get_home_view(user_id: str):
-    """Create the home tab view"""
-    logging.info(f"Creating home view for user {user_id}")
-    blocks = [
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "*Welcome to Check-in Bot!* 👋\n\nI help manage monthly check-in groups and add emoji reactions to encourage interaction between members."
-            }
-        },
-        {
-            "type": "divider"
-        },
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "*Want to save your check-ins?*\nYou can DM me with a channel name (like #channel-name) and I'll send you all your check-ins from that channel! Note that threaded replies are not included unless they were also posted as top-level channel messages."
-            }
-        }
-    ]
-    
-    view = {
-        "type": "home",
-        "blocks": blocks
-    }
-    logging.info(f"Generated home view: {view}")
-    return view
-
-@app.event("app_home_opened")
-def update_home_tab(client, event, logger):
-    """Handle app home opened events"""
-    logger.info(f"App home opened event received: {event}")
-    try:
-        # Check the event type
-        if event["tab"] != "home":
-            logger.info("Ignoring non-home tab event")
-            return
-            
-        logger.info(f"Publishing home view for user {event['user']}")
-        result = client.views_publish(
-            user_id=event["user"],
-            view=get_home_view(event["user"])
-        )
-        logger.info(f"Successfully published home view: {result}")
-    except Exception as e:
-        logger.error(f"Error publishing home tab: {str(e)}")
-        logger.error(f"Full error details: {repr(e)}")
-
 # Ready? Start your app!
 if __name__ == "__main__":
+    # Add the app instance to make workspace_info accessible
+    app.get_workspace_info = get_workspace_info
+    
+    # Register home tab handlers
+    register_home_tab_handlers(app)
+    
     app.start(port=3000)
