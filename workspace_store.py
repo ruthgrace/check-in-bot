@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 import pickle
+import random
 
 def save_workspace_data(data):
     """Save workspace data to pickle file"""
@@ -66,4 +67,45 @@ def update_workspace_admins(team_id: str, admin_ids: list):
     if team_id in data:
         data[team_id]["admins"] = admin_ids
         save_workspace_data(data)
-        logging.info(f"Updated admins for workspace {team_id}: {admin_ids}") 
+        logging.info(f"Updated admins for workspace {team_id}: {admin_ids}")
+
+def generate_admin_passcode(team_id: str, user_id: str):
+    """Generate and store a passcode for admin verification
+    
+    Returns the generated passcode
+    """
+    # Generate a 6-digit passcode
+    passcode = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+    
+    data = get_workspace_info()
+    if team_id in data:
+        # Add or update pending_admin field
+        if "pending_admins" not in data[team_id]:
+            data[team_id]["pending_admins"] = {}
+
+        # Flush previous pending passcodes
+        data[team_id]["pending_admins"] = {}
+        
+        data[team_id]["pending_admins"][user_id] = {
+            "passcode": passcode,
+            "timestamp": datetime.now().isoformat()
+        }
+        save_workspace_data(data)
+        logging.info(f"Generated admin passcode for user {user_id} in workspace {team_id}")
+        
+    return passcode
+
+def verify_admin_passcode(team_id: str, user_id: str, passcode: str) -> bool:
+    """Verify a passcode and make user admin if correct"""
+    data = get_workspace_info()
+    if team_id in data and "pending_admins" in data[team_id]:
+        pending = data[team_id]["pending_admins"].get(user_id)
+        if pending and pending["passcode"] == passcode:
+            # Remove from pending and add to admins
+            del data[team_id]["pending_admins"][user_id]
+            if user_id not in data[team_id]["admins"]:
+                data[team_id]["admins"].append(user_id)
+            save_workspace_data(data)
+            logging.info(f"User {user_id} verified as admin in workspace {team_id}")
+            return True
+    return False 

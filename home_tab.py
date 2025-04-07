@@ -27,8 +27,7 @@ def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
                 logging.error(f"Error getting user info: {repr(e)}")
         admin_text = "\n\n*Administrators:*\n" + ", ".join(admin_usernames)
     else:
-        admin_text = "\n\n*Administrators:*\nNo administrators found. "   
-    
+        admin_text = "\n\n*Administrators:*\nNo administrators found. You can become an administrator by messaging 'king me' to the check-in bot."
     blocks = [
         {
             "type": "section",
@@ -71,13 +70,10 @@ def register_home_tab_handlers(app):
     @app.event("app_home_opened")
     def update_home_tab(client, event, logger):
         """Handle app home opened events"""
-        logger.info(f"App home opened event received: {event}")
         try:
             # Check the event type
             if event["tab"] != "home":
-                logger.info("Ignoring non-home tab event")
                 return
-                
             logger.info(f"Publishing home view for user {event['user']}")
             result = client.views_publish(
                 user_id=event["user"],

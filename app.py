@@ -1,6 +1,7 @@
 import importlib
 import re
 import string
+import random
 from datetime import datetime, date, timedelta
 from openai import OpenAI
 from slack_bolt import App
@@ -10,7 +11,7 @@ from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 import logging
-from workspace_store import get_workspace_info, update_workspace_admins
+from workspace_store import get_workspace_info, update_workspace_admins, generate_admin_passcode, verify_admin_passcode
 from home_tab import register_home_tab_handlers
 
 # Add this near the top of your file
@@ -203,10 +204,43 @@ def post_emojis(client, event, logger, emojis):
     except Exception as e:
       logger.error(f"Error publishing {emoji} emoji react: {repr(e)}")
 
+def handle_admin_request(client, event, logger):
+    """Handle 'king me' messages and admin verification"""
+    text = event.get("text", "").strip().lower()
+    
+    if text == "king me":
+        passcode = generate_admin_passcode(event["team"], event["user"])
+        logger.info(f"Generating admin passcode for {event['user']} in team {event['team']}: {passcode}")
+        client.chat_postMessage(
+            channel=event["channel"],
+            text=f"Please verify that you want to become an administrator by replying with the passcode seen in the server logs."
+        )
+        return True
+    
+    # Check if it's a passcode verification attempt
+    if text.isdigit() and len(text) == 6:
+        if verify_admin_passcode(event["team"], event["user"], text):
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="✅ Verification successful! You are now an administrator."
+            )
+        else:
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="❌ Invalid or expired passcode. Please try 'king me' again if you want to become an administrator."
+            )
+        return True
+    
+    return False
+
 @app.event("message")
 def respond_to_message(client, event, logger):
   # direct messages to the bot are only used for extracting check ins
   if is_dm(event):
+    # Check for admin requests first
+    if handle_admin_request(client, event, logger):
+        return
+    
     channel_id = extract_channel(event['text'])
     # need to get the channel name for the month
     if channel_id:
