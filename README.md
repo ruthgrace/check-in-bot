@@ -58,8 +58,8 @@ sudo chown -R www-data:www-data .venv
 4. symlink `nginx/check-in-bot` file to nginx config
 
 ```
-sudo ln -fs /var/www/check-in-bot/nginx/check-in-bot.bootstrap /etc/nginx/sites-available/check-in-bot
-sudo ln -fs /etc/nginx/sites-available/check-in-bot /etc/nginx/sites-enabled/check-in-bot
+sudo ln -fs /var/www/check-in-bot/nginx/check-in-bot /etc/nginx/sites-available/check-in-bot
+sudo service nginx reload
 ```
 
 5. run `sudo service nginx reload`
@@ -98,14 +98,46 @@ sudo service check-in-bot start
 sudo certbot renew
 ```
 
+## Setting up the Cron Service
+
+After setting up the main service, set up the cron service that handles scheduled tasks:
+
+1. Create the service and timer files:
+```
+sudo cp -f check-in-bot-cron.service /etc/systemd/system/check-in-bot-cron.service
+sudo cp -f check-in-bot-cron.timer /etc/systemd/system/check-in-bot-cron.timer
+```
+
+2. Set correct permissions:
+```bash
+sudo chmod 644 /etc/systemd/system/check-in-bot-cron.service
+sudo chmod 644 /etc/systemd/system/check-in-bot-cron.timer
+```
+
+4. Enable and start the timer:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable check-in-bot-cron.timer
+sudo systemctl start check-in-bot-cron.timer
+```
+
+5. Verify the timer is running:
+```bash
+journalctl -u check-in-bot-cron.service
+```
+
+The cron service will run daily at 15:00 UTC (8am Pacific) and perform these tasks:
+- On the 25th: Announce signups for next month's check-in groups
+- On the last day: Create channels and add participants
+- On the 7th: Send reminders to inactive members
+- On the 11th: Remove inactive members
+
+## notes
+
+this doesn't work for enterprise installations (see code in cron.py)
+
 ## to do
 
-* set up a pickle with info about each workspace
-** admin users
-** list of users to keep apart
-* make it so that someone can become admin by putting in chat a password that's output in logs on the server
-* Have different app home page for admin versus non admin
 * announce new groups on the 25th of previous month
 * add people to new groups automatically with welcome message
-* remind people who haven't posted by the 7th of the month
 * kick people who haven't posted by the 11th of the month

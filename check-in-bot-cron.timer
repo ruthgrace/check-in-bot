@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Check-in Bot Cron Tasks Daily
+
+[Timer]
+# Run once a day at 8am Pacific (15:00 UTC)
+OnCalendar=*-*-* 15:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target 
