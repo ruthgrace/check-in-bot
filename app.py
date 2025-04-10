@@ -11,7 +11,7 @@ from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 import logging
-from workspace_store import get_workspace_info, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, update_channel_format, update_announcement_channel
+from workspace_store import get_workspace_info, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, update_channel_format, update_announcement_channel, update_custom_announcement
 from home_tab import register_home_tab_handlers
 
 # Add this near the top of your file
@@ -292,7 +292,25 @@ def handle_admin_request(client, event, logger):
                 text="❌ Failed to update announcement channel."
             )
         return True
-    
+
+    # Handle set announcement channel command
+    if text.startswith("set announce text"):
+        new_text = event["text"][len("set announce text"):].strip()
+        if not new_text:
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="❌ Please provide a text, like: set announce text [Your text here]"
+            )
+            return True
+            
+        update_custom_announcement(event["team"], new_text)
+        client.chat_postMessage(
+            channel=event["channel"],
+            text=f"✅ Announcement text set to {new_text}"
+        )
+        return True
+
+
     # Check if it's a passcode verification attempt
     if text.isdigit() and len(text) == 6:
         if verify_admin_passcode(event["team"], event["user"], text):
@@ -334,6 +352,80 @@ def respond_to_message(client, event, logger):
     emojis = get_emojis(client, event, logger)
     if emojis is not None:
       post_emojis(client, event, logger, emojis)
+
+@app.command("/set-announcement")
+def handle_set_announcement(ack, command, client, body):
+    ack()
+    try:
+        # Check if user is admin
+        user_info = client.users_info(user=command["user_id"])
+        if not user_info["user"]["is_admin"]:
+            client.chat_postMessage(
+                channel=command["channel_id"],
+                text="Sorry, only workspace admins can set the announcement channel."
+            )
+            return
+
+        # Extract the announcement text from the command
+        text = command["text"].strip()
+        if not text:
+            client.chat_postMessage(
+                channel=command["channel_id"],
+                text="Please provide the announcement text. Usage: `/set-announcement Your custom announcement text here`"
+            )
+            return
+
+        # Update the announcement text
+        update_custom_announcement(body["team_id"], text)
+        
+        client.chat_postMessage(
+            channel=command["channel_id"],
+            text=f"✅ Custom announcement text has been updated!"
+        )
+        
+    except Exception as e:
+        logging.error(f"Error setting announcement text: {e}")
+        client.chat_postMessage(
+            channel=command["channel_id"],
+            text="Sorry, there was an error setting the announcement text."
+        )
+
+@app.command("/set-announcement-text")
+def handle_set_announcement_text(ack, command, client, body):
+    ack()
+    try:
+        # Check if user is admin
+        user_info = client.users_info(user=command["user_id"])
+        if not user_info["user"]["is_admin"]:
+            client.chat_postMessage(
+                channel=command["channel_id"],
+                text="Sorry, only workspace admins can set the announcement text."
+            )
+            return
+
+        # Extract the announcement text from the command
+        text = command["text"].strip()
+        if not text:
+            client.chat_postMessage(
+                channel=command["channel_id"],
+                text="Please provide the announcement text. Usage: `/set-announcement-text Your custom announcement text here`"
+            )
+            return
+
+        # Update the announcement text
+        update_custom_announcement(body["team_id"], text)
+        
+        client.chat_postMessage(
+            channel=command["channel_id"],
+            text=f"✅ Custom announcement text has been updated!"
+        )
+        
+    except Exception as e:
+        logging.error(f"Error setting announcement text: {e}")
+        client.chat_postMessage(
+            channel=command["channel_id"],
+            text="Sorry, there was an error setting the announcement text."
+        )
 
 # Ready? Start your app!
 if __name__ == "__main__":

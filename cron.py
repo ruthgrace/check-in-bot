@@ -44,9 +44,46 @@ app = App(
     oauth_settings=oauth_settings
 )
 
+# Month-specific emojis for signup messages
+MONTH_EMOJIS = {
+    "January": ":snowflake:",  # Snowflake for winter
+    "February": ":heart:",  # Hearts for Valentine's Day
+    "March": ":four_leaf_clover:",  # Four leaf clover for St. Patrick's Day
+    "April": ":cherry_blossom:",  # Cherry blossom for spring
+    "May": ":tulip:",  # Tulip for spring flowers
+    "June": ":sunny:",  # Sunny for summer
+    "July": ":beach_with_umbrella:",  # Beach umbrella for summer vacation
+    "August": ":palm_tree:",  # Palm tree for summer
+    "September": ":fallen_leaf:",  # Fallen leaf for autumn
+    "October": ":jack_o_lantern:",  # Jack o'lantern for Halloween
+    "November": ":maple_leaf:",  # Maple leaf for fall
+    "December": ":christmas_tree:"  # Christmas tree for holidays
+}
+
 def get_pt_time():
     """Get current time in PT (UTC-8, ignoring daylight savings)"""
     return datetime.utcnow() - timedelta(hours=8)
+
+def build_announcement_message(workspace_info: dict):
+    """Build the announcement message for the monthly signup"""
+    
+    # Get the next month
+    now = get_pt_time()
+    next_month = (now.replace(day=1) + timedelta(days=32)).replace(day=1)
+    next_month_name = next_month.strftime("%B")
+    
+    # Get the month-specific emoji
+    month_emoji = MONTH_EMOJIS.get(next_month_name, ":calendar:")  # Default to calendar if month not found
+    
+    # Get the custom announcement text
+    custom_text = workspace_info.get("custom_announcement_text", "")
+    if not custom_text:
+        custom_text = ""
+    
+    # Create the message
+    message = f"It's almost {next_month_name}! {month_emoji} @channel Please react to this message if you want to opt in for {next_month_name}. {custom_text}\n\n:sun_with_face: If you would like to try daily checkins\n:star2: If you would like to do weekly checkins (in the same channel)"
+    
+    return message
 
 def get_current_month_channels(client, workspace_info: dict):
     """Get all check-in channels for the current month"""
@@ -185,6 +222,41 @@ def kick_inactive_users(client, channel_id: str, no_posts: list):
     except SlackApiError as e:
         logging.error(f"Error getting channel info: {e}")
 
+def post_monthly_signup(client, workspace_info: dict):
+    """Post the monthly signup message to the announcement channel"""
+    try:
+        # Get the announcement channel
+        announcement_channel = workspace_info.get("announcement_channel")
+        if not announcement_channel:
+            logging.info("No announcement channel set for this workspace, skipping monthly signup")
+            return
+        message = build_announcement_message(workspace_info)
+        
+        
+        # Post the message
+        result = client.chat_postMessage(
+            channel=announcement_channel,
+            text=message,
+            parse="none"
+        )
+
+        # Add initial emoji reacts to the message
+        client.reactions_add(
+            channel=announcement_channel,
+            timestamp=result["ts"],
+            name="sun_with_face"
+        )
+        client.reactions_add(
+            channel=announcement_channel,
+            timestamp=result["ts"],
+            name="star2"
+        )
+        
+        logging.info(f"Posted monthly signup message to channel {announcement_channel}")
+        
+    except SlackApiError as e:
+        logging.error(f"Error posting monthly signup: {e}")
+
 def check_and_remind():
     """Check for users who need reminders and send them"""
     logging.info("Cron job started")
@@ -210,46 +282,30 @@ def check_and_remind():
             client = app.client
             client.token = installation.bot_token
             
-            # Get current month's channels
-            channels = get_current_month_channels(client, workspace_info)
+            # On the 25th, post the monthly signup message
+            if current_day == 25:
+                post_monthly_signup(client, workspace_info)
+            elif current_day == 7 or current_day == 11:
+                # Get current month's channels
+                channels = get_current_month_channels(client, workspace_info)
             
-            for channel in channels:
-                no_posts, only_intro = get_users_without_posts(client, channel["id"])
+                for channel in channels:
+                    no_posts, only_intro = get_users_without_posts(client, channel["id"])
+                    
+                    # On the 7th, send reminders
+                    if current_day == 7:
+                        for user in no_posts:
+                            send_reminder(client, user, channel["id"], False)
+                            
+                        for user in only_intro:
+                            send_reminder(client, user, channel["id"], True)
                 
-                # On the 7th, send reminders
-                if current_day == 7:
-                    for user in no_posts:
-                        send_reminder(client, user, channel["id"], False)
-                        
-                    for user in only_intro:
-                        send_reminder(client, user, channel["id"], True)
-                
-                # On the 11th, kick inactive users
-                elif current_day == 11:
-                    kick_inactive_users(client, channel["id"], no_posts)
+                    # On the 11th, kick inactive users
+                    elif current_day == 11:
+                        kick_inactive_users(client, channel["id"], no_posts)
                     
         except Exception as e:
             logging.error(f"Error processing workspace {workspace_id}: {e}")
 
 if __name__ == "__main__":
     check_and_remind()
-
-# time-based check-in-bot tasks
-
-# ***Need to make sure actions are logged so that they can be reviewed.***
-
-# on the 25th of the previous month: announce signups for check in groups For the next month
-#    Also create the groups and add the check-in bot. 
-
-# on the last day of the previous month:
-#    Determine how many channels there should be (number of people // 12)
-#        Can adjust based on previous posting frequency information 
-#    Post a welcome message / intro thread in the channels, tagging everyone who should be in that channel
-#    Ensure that everybody is added.
-
-# on the 7th of the month:
-#    Message people who have not posted. 
-#    Message people who have only posted an intro and not posted a check-in to remind. 
-
-# on the 11th of the month: Remove people who have still not posted ever.
-#    Could also remove people who replied to the message asking to be removed even if they've already posted an intro.

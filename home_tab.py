@@ -2,8 +2,8 @@ import logging
 from datetime import datetime
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
-from workspace_store import ensure_workspace_exists
-
+from workspace_store import ensure_workspace_exists, update_channel_format
+from cron import build_announcement_message
 def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
     """Create the home tab view"""    
     # Check if we need to create/update workspace info
@@ -14,15 +14,15 @@ def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
     ensure_workspace_exists(team_id, team_name)
     
     # Get workspace info from the event context
-    workspace = get_workspace_info(team_id)
+    workspace_info = get_workspace_info(team_id)
+    
     admin_text = ""
     incompatible_text = ""
     announcement_text = ""
     
-    if workspace and workspace["admins"] and len(workspace["admins"]) > 0:
+    if workspace_info and workspace_info["admins"] and len(workspace_info["admins"]) > 0:
         admin_usernames = []
-        channel_format = workspace.get("channel_format", "[year]-[month]-[number]")
-        for admin_id in workspace["admins"]:
+        for admin_id in workspace_info["admins"]:
             try:
                 # Get user info from Slack
                 user_info = client.users_info(user=admin_id)
@@ -30,25 +30,6 @@ def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
             except Exception as e:
                 logging.error(f"Error getting user info: {repr(e)}")
         admin_text = "\n\n*Administrators:*\n" + ", ".join(admin_usernames)
-        
-        # If current user is an admin, show incompatible pairs and announcement channel
-        if user_id in workspace["admins"]:
-            if workspace["incompatible_pairs"]:
-                pair_texts = []
-                for user1, user2 in workspace["incompatible_pairs"]:
-                    pair_texts.append(f"<@{user1}> and <@{user2}>")
-                incompatible_text = "\n\n*Users kept apart:*\n" + "\n".join(pair_texts)
-            else:
-                incompatible_text = "\n\n*Users kept apart:*\nNo users are currently being kept apart."
-            
-            incompatible_text += f"\n\n*Channel naming format:*\n{channel_format}\n_(Administrators can change this with 'set format [new format]')_"
-            
-            # Add announcement channel info
-            announcement_channel = workspace.get("announcement_channel")
-            if announcement_channel:
-                announcement_text = f"\n\n*Announcement channel:*\n<#{announcement_channel}>\n_(Administrators can change this with 'set announcement #channel')_"
-            else:
-                announcement_text = "\n\n*Announcement channel:*\nNo announcement channel set. Administrators can set one with 'set announcement #channel'"
     else:
         admin_text = "\n\n*Administrators:*\nNo administrators found. You can become an administrator by messaging 'king me' to the check-in bot."
     blocks = [
@@ -76,7 +57,7 @@ def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": admin_text + "\n\nAdministrators can ask check-in-bot to keep certain users from being in the same check-in-group." + incompatible_text + announcement_text
+                "text": admin_text + "\n\nAdministrators can ask check-in-bot to keep certain users from being in the same check-in-group."
             }
         }
     ]
@@ -85,6 +66,9 @@ def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
         "type": "home",
         "blocks": blocks
     }
+    # If user is an admin, show the admin home view
+    if workspace_info and workspace_info.get("admins") and user_id in workspace_info["admins"]:
+        return build_admin_home(workspace_info, blocks)
     return view
 
 def register_home_tab_handlers(app):
@@ -104,4 +88,87 @@ def register_home_tab_handlers(app):
             )
         except Exception as e:
             logger.error(f"Error publishing home tab: {str(e)}")
-            logger.error(f"Full error details: {repr(e)}") 
+            logger.error(f"Full error details: {repr(e)}")
+
+def build_admin_home(workspace_info: dict, blocks: list) -> dict:
+    """Build the admin home tab view"""
+    blocks.extend([
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "Admin Settings",
+                "emoji": True
+            }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "Configure your workspace settings below:"
+            }
+        }
+    ])
+
+
+    if workspace_info["incompatible_pairs"]:
+        pair_texts = []
+        for user1, user2 in workspace_info["incompatible_pairs"]:
+            pair_texts.append(f"<@{user1}> and <@{user2}>")
+        incompatible_text = "\n\n*Users kept apart:*\n" + "\n".join(pair_texts)
+    else:
+        incompatible_text = "\n\n*Users kept apart:*\nNo users are currently being kept apart."
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": incompatible_text
+        }
+    })
+    
+    channel_format = workspace_info.get("channel_format")
+    if not channel_format:
+        update_channel_format(team_id, "check-ins-[year]-[month]")
+        channel_format = workspace_info.get("channel_format")
+    channel_format_text = f"\n\n*Channel naming format:*\n{channel_format}\n(Administrators can change this with `set format [new format]`)"
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": channel_format_text
+        }
+    })
+    
+    # Add announcement channel info
+    announcement_channel = workspace_info.get("announcement_channel")
+    if announcement_channel:
+        announcement_text = f"\n\n*Announcement channel:*\n<#{announcement_channel}>\n(Administrators can change this with `set announce channel #channel`)"
+    else:
+        announcement_text = "\n\n*Announcement channel:*\nNo announcement channel set. Administrators can set one with `set announce channel #channel`"
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": announcement_text
+        }
+    })
+
+    # Add custom announcement text section
+    logging.info(f"workspace_info: {workspace_info}")
+    custom_announcement = workspace_info.get("custom_announcement_text", "")
+    if custom_announcement:
+        custom_announcement_text = f"*Custom Announcement Text:*\n{custom_announcement}\nUse `set announce text [Your text here]` to set.\n\nThis is what your monthly signup message will look like:\n\n{build_announcement_message(workspace_info)}"
+    else:
+        custom_announcement_text = f"*Custom Announcement Text:*\nNo custom announcement text set.\nUse `set announce text [Your text here]` to set.\n\nThis is what your monthly signup message will look like. Your custom text will apear after the 2nd sentence:\n\n{build_announcement_message(workspace_info)}"
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": custom_announcement_text
+        }
+    })
+
+    return {
+        "type": "home",
+        "blocks": blocks
+    } 

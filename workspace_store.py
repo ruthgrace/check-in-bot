@@ -4,6 +4,7 @@ from pathlib import Path
 import pickle
 import random
 import re
+import json
 
 def save_workspace_data(data):
     """Save workspace data to pickle file"""
@@ -199,4 +200,23 @@ def update_announcement_channel(team_id: str, channel_id: str) -> bool:
         save_workspace_data(data)
         logging.info(f"Updated announcement channel for workspace {team_id}: {channel_id}")
         return True
-    return False 
+    return False
+
+def save_workspace_info(workspaces):
+    """Save workspace information"""
+    with open("data/workspaces.json", 'w') as f:
+        json.dump(workspaces, f, indent=2)
+
+def update_workspace_info(workspace_id: str, updates: dict):
+    """Update workspace information"""
+    workspaces = get_workspace_info()
+    if workspace_id not in workspaces:
+        workspaces[workspace_id] = {}
+    logging.info(f"updates: {updates}")
+    workspaces[workspace_id].update(updates)
+    logging.info(f"workspace {workspace_id} after update: {workspaces[workspace_id]}")
+    save_workspace_info(workspaces)
+
+def update_custom_announcement(workspace_id: str, announcement_text: str):
+    """Update the custom announcement text for a workspace"""
+    update_workspace_info(workspace_id, {"custom_announcement_text": announcement_text})
