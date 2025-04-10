@@ -4,7 +4,6 @@ __pycache__/
 data
 data/installations
 data/states
-data/workspaces.pickle
-data/*.pickle
+!data/workspaces.pickle
 .editorconfig
 .vscode
