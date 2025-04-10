@@ -139,8 +139,4 @@ this doesn't work for enterprise installations (see code in cron.py)
 ## to do
 
 * Figure out why App Home isn't working on Commons slack - ask someone who works at the commosn about reinstalling via https://check-in-bot.ruthgracewong.com/slack/install
-* add people to new groups automatically with welcome message
-** manually add last announcement info to workspace
-** print out who reacted
-** test the groups creation code later on the 1st of the next month
-* message administrators every time an automatic action is taken from cron.py
+* archive all channels with a specific year/string

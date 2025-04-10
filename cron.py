@@ -105,6 +105,12 @@ def build_intro_message(users: list, month: str):
     )
     return message
 
+def dm_admins(client, workspace_info: dict, message: str):
+    """DM admins about the new checkin groups"""
+    admins = workspace_info.get("admins", [])
+    for admin in admins:
+        client.chat_postMessage(channel=admin, text=message)
+
 def get_current_month_channels(client, workspace_info: dict):
     """Get all check-in channels for the current month"""
     channels = []
@@ -205,10 +211,12 @@ def send_reminder(client, user_id: str, channel_id: str, is_intro_only: bool):
             channel=user_id,  # DM the user
             text=message
         )
-        logging.info(f"Sent reminder to user {user_id} ({first_name}) for channel {channel_id}")
+        logging.info(f"Sent reminder to user <@{user_id}> ({first_name}) for channel <#{channel_id}>")
+        dm_admins(client, workspace_info, f"Sent reminder to user <@{user_id}> for channel <#{channel_id}>")
         
     except SlackApiError as e:
         logging.error(f"Error sending reminder: {e}")
+        dm_admins(client, workspace_info, f"Error sending reminder: {e}")
 
 def kick_inactive_users(client, channel_id: str, no_posts: list):
     """Kick users who haven't posted from the channel"""
@@ -232,15 +240,16 @@ def kick_inactive_users(client, channel_id: str, no_posts: list):
                 client.chat_postMessage(
                     channel=user_id,
                     text=f"Hi {first_name}, I've removed you from {channel_name} since you haven't posted a check-in this month. You're always welcome to join again in a future month! 🙂"
-                )
-                
+                )   
+                dm_admins(client, workspace_info, f"Kicked user <@{user_id}> from channel <#{channel_id}>")
                 logging.info(f"Kicked user {user_id} ({first_name}) from channel {channel_id}")
                 
             except SlackApiError as e:
-                logging.error(f"Error kicking user {user_id}: {e}")
-                
+                logging.error(f"Error kicking user {user_id} ({first_name}) from channel {channel_id}: {e}")
+                dm_admins(client, workspace_info, f"Error kicking user <@{user_id}> from channel <#{channel_id}>: {e}")
     except SlackApiError as e:
         logging.error(f"Error getting channel info: {e}")
+        dm_admins(client, workspace_info, f"Error getting channel info for kicking users who haven't posted: {e}")
 
 def post_monthly_signup(client, workspace_info: dict):
     """Post the monthly signup message to the announcement channel"""
@@ -270,25 +279,26 @@ def post_monthly_signup(client, workspace_info: dict):
             timestamp=result["ts"],
             name="star2"
         )
-        
-        logging.info(f"Posted monthly signup message to channel {announcement_channel}")
+        dm_admins(client, workspace_info, f"Posted monthly signup message to channel <#{announcement_channel}>")
+        logging.info(f"Posted monthly signup message to channel <#{announcement_channel}>")
         
     except SlackApiError as e:
         logging.error(f"Error posting monthly signup: {e}")
+        dm_admins(client, workspace_info, f"Error posting monthly signup: {e}")
 
 def make_new_checkin_groups(client, workspace_info: dict):
     """Make new checkin groups for the current month"""
     # Get the announcement channel
     announcement_channel = workspace_info.get("announcement_channel")
     if not announcement_channel:
-        # TODO: message administrators
         logging.info("No announcement channel set for this workspace, skipping group creation")
+        dm_admins(client, workspace_info, "No announcement channel set for this workspace, skipping group creation")
         return
 
     last_announcement_timestamp = workspace_info.get("announcement_timestamp")
     if not last_announcement_timestamp:
-        # TODO: message administrators
         logging.info("No last announcement set for this workspace, skipping group creation")
+        dm_admins(client, workspace_info, "No last announcement set for this workspace, skipping group creation")
         return
 
     channel_id = last_announcement_timestamp["channel"]
@@ -298,13 +308,13 @@ def make_new_checkin_groups(client, workspace_info: dict):
         result = client.reactions_get(channel=channel_id, timestamp=timestamp)
         reactions = result.data["message"].get("reactions", [])
     except SlackApiError as e:
-        # TODO: message administrators
-        logging.error(f"Error getting reaction users: {e}")
+        logging.error(f"Error getting user reactions to last announcement: {e}")
+        dm_admins(client, workspace_info, f"Error getting user reactions to last announcement: {e}")
         return
 
     if len(reactions) == 0:
-        # TODO: message administrators
         logging.info("No reactions found for the announcement message, skipping group creation")
+        dm_admins(client, workspace_info, "No reactions found for the announcement message, skipping group creation")
         return
     
     daily_posters = set()
@@ -369,8 +379,8 @@ def make_new_checkin_groups(client, workspace_info: dict):
     # create checkin channels
     channel_format = workspace_info.get("channel_format", "")
     if not channel_format:
-        # TODO: message administrators
         logging.info("No channel format set for this workspace, skipping channel creation")
+        dm_admins(client, workspace_info, "No channel format set for this workspace, skipping channel creation")
         return
     try:
         for i in range(len(group_memberships)):
@@ -389,8 +399,8 @@ def make_new_checkin_groups(client, workspace_info: dict):
             # post intro thread
             client.chat_postMessage(channel=new_channel_id, text=build_intro_message(group_memberships[i], month_name))
     except SlackApiError as e:
-        # TODO: message administrators
         logging.error(f"Error creating checkin channels: {e}")
+        dm_admins(client, workspace_info, f"Error creating checkin channels: {e}")
         return
 
 if __name__ == "__main__":
