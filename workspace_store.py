@@ -221,3 +221,12 @@ def update_announcement_tag(workspace_id: str, tag_type: str):
         return (False, "Tag type must be either 'here' or 'channel'")
     update_workspace_info(workspace_id, {"announcement_tag": tag_type})
     return (True, "")
+
+def update_announcement_timestamp(workspace_id: str, channel_id: str, timestamp: str):
+    """Update the announcement message timestamp for a workspace"""
+    update_workspace_info(workspace_id, {
+        "announcement_timestamp": {
+            "channel": channel_id,
+            "ts": timestamp
+        }
+    })

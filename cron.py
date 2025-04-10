@@ -90,6 +90,21 @@ def build_announcement_message(workspace_info: dict):
     
     return message
 
+def build_intro_message(users: list, month: str):
+    """Build the intro message for the checkin channels"""
+    users_text = " ".join([f"<@{user}>" for user in users])
+    message = (
+        f"Welcome to {month}! {MONTH_EMOJIS[month]} {users_text}\n\n"
+        f"Let's do introductions here in thread. You can be as brief or long as you like. Share any of: who you might mention in your check ins, what's been on your mind lately, or what you'd like to build in the short or long term. (pasting your intro from a previous month is fine too!)\n\n"
+        f"General info about this group:\n"
+        f"* The aim is to create a supportive group of close-knit friends, not to make people feel bad about their productivity level\n"
+        f"* We share our intentions for the day and how our previous day went, often along with a little journalling. The format is casual and flexible, and i'm happy for you to use this group in a way that feels most useful to you. Some people post daily and others weekly.\n"
+        f"* If you don't end up posting anything by the 10th of the month I will bump you out of this month's group, just to make sure nobody feels weird about people reading without posting. I'll send out reminders to people who haven't posted around the 7th.\n"
+        f"* If you want to get the text of all your checkins from a month, message me just the name of the channel, like `#2025-february-1` (but in plain text; the channel should turn into a blue link)\n"
+        f"* If you read someone else's message, leave an emoji react! :slightly_smiling_face: I will leave some initial emoji reacts on each message to foster more human to human interaction."
+    )
+    return message
+
 def get_current_month_channels(client, workspace_info: dict):
     """Get all check-in channels for the current month"""
     channels = []
@@ -261,8 +276,124 @@ def post_monthly_signup(client, workspace_info: dict):
     except SlackApiError as e:
         logging.error(f"Error posting monthly signup: {e}")
 
-def check_and_remind():
-    """Check for users who need reminders and send them"""
+def make_new_checkin_groups(client, workspace_info: dict):
+    """Make new checkin groups for the current month"""
+    # Get the announcement channel
+    announcement_channel = workspace_info.get("announcement_channel")
+    if not announcement_channel:
+        # TODO: message administrators
+        logging.info("No announcement channel set for this workspace, skipping group creation")
+        return
+
+    last_announcement_timestamp = workspace_info.get("announcement_timestamp")
+    if not last_announcement_timestamp:
+        # TODO: message administrators
+        logging.info("No last announcement set for this workspace, skipping group creation")
+        return
+
+    channel_id = last_announcement_timestamp["channel"]
+    timestamp = last_announcement_timestamp["ts"]
+    try:
+        # Get all users who reacted to the announcement message
+        result = client.reactions_get(channel=channel_id, timestamp=timestamp)
+        reactions = result.data["message"].get("reactions", [])
+    except SlackApiError as e:
+        # TODO: message administrators
+        logging.error(f"Error getting reaction users: {e}")
+        return
+
+    if len(reactions) == 0:
+        # TODO: message administrators
+        logging.info("No reactions found for the announcement message, skipping group creation")
+        return
+    
+    daily_posters = set()
+    weekly_posters = set()
+    for react in reactions:
+        if react["name"] == "sun_with_face":
+            daily_posters.update(react["users"])
+        elif react["name"] == "star2":
+            weekly_posters.update(react["users"])
+    # admin should be in all groups, will be added separately
+    admins = set(workspace_info['admins'])
+    daily_posters = daily_posters - admins
+    weekly_posters = weekly_posters - admins
+    # people who reacted for both daily and weekly should be considered weekly posters
+    daily_posters = daily_posters - weekly_posters
+    logging.info(f"Daily posters: {daily_posters}")
+    logging.info(f"Weekly posters: {weekly_posters}")
+    all_participants = set()
+    all_participants.update(daily_posters)
+    all_participants.update(weekly_posters)
+
+    # check if there are any incompatible pairs in the workspace
+    incompatible_pairs = workspace_info.get("incompatible_pairs", [])
+    group_memberships = [[]]
+    added_members = set()
+    for pair in incompatible_pairs:
+        if pair[0] in all_participants and pair[1] in all_participants:
+            if len(group_memberships) == 1:
+                group_memberships.append([])
+            group_memberships[0].append(pair[0])
+            group_memberships[1].append(pair[1])
+            added_members.add(pair[0])
+            added_members.add(pair[1])
+    # Aiming for at least 12 people in each group including one admin 
+    if len(all_participants) // 11 > len(group_memberships):
+        for i in range(len(all_participants) // 11-len(group_memberships)):
+            group_memberships.append([])
+    current_group = len(added_members) % len(group_memberships)
+    # users are added round-robin based on the order in which they reacted to the announcement
+    for user in daily_posters:
+        if user not in added_members:
+            group_memberships[current_group].append(user)
+            added_members.add(user)
+            current_group = (current_group + 1) % len(group_memberships)
+        else:
+            continue
+    for user in weekly_posters:
+        if user not in added_members:
+            group_memberships[current_group].append(user)
+            added_members.add(user)
+            current_group = (current_group + 1) % len(group_memberships)
+        else:
+            continue
+    # admins are also added round-robin with the requirement that there be one admin in each group
+    current_admin = 0
+    admins = list(admins)
+    for group in group_memberships:
+        group.append(admins[current_admin])
+        current_admin = (current_admin + 1) % len(admins)
+    logging.info(f"Group memberships: {group_memberships}")
+
+    # create checkin channels
+    channel_format = workspace_info.get("channel_format", "")
+    if not channel_format:
+        # TODO: message administrators
+        logging.info("No channel format set for this workspace, skipping channel creation")
+        return
+    try:
+        for i in range(len(group_memberships)):
+            channel_name = channel_format
+            month_name = get_pt_time().strftime('%B')
+            month_two_digits = get_pt_time().strftime('%m')
+            channel_name.replace("[month]", f"{month_two_digits}")
+            channel_name.replace("[year]", f"{get_pt_time().year}")
+            if len(group_memberships) > 1:
+                channel_name += f"-{i+1}"
+            result = client.conversations_create(name=channel_name, is_private=True)
+            new_channel_id = result.data["channel_id"]
+            # add members to the channel
+            new_users = group_memberships[i].join(",")
+            client.conversations_invite(channel=new_channel_id, users=new_users)
+            # post intro thread
+            client.chat_postMessage(channel=new_channel_id, text=build_intro_message(group_memberships[i], month_name))
+    except SlackApiError as e:
+        # TODO: message administrators
+        logging.error(f"Error creating checkin channels: {e}")
+        return
+
+if __name__ == "__main__":
     logging.info("Cron job started")
     current_day = get_pt_time().day
     logging.info(f"Current day: {current_day} (Pacific time)")
@@ -307,9 +438,7 @@ def check_and_remind():
                     # On the 11th, kick inactive users
                     elif current_day == 11:
                         kick_inactive_users(client, channel["id"], no_posts)
-                    
+            elif current_day == 1:
+                make_new_checkin_groups(client, workspace_info)
         except Exception as e:
             logging.error(f"Error processing workspace {workspace_id}: {e}")
-
-if __name__ == "__main__":
-    check_and_remind()

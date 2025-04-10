@@ -142,6 +142,9 @@ def parse_messages(check_in_entries, message_data, user):
         check_in_entries.append(readable_date)
 
 def should_react(client, event, logger):
+  # don't react to messages in announcement channel
+  if event["channel"] == get_workspace_info(event["team"])["announcement_channel"]:
+    return False
   if "text" not in event.keys():
     return False
   if "subtype" in event and event["subtype"] in NO_REACT_EVENTS:
