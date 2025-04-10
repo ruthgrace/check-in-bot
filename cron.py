@@ -153,18 +153,43 @@ def send_reminder(client, user_id: str, channel_id: str, is_intro_only: bool):
     except SlackApiError as e:
         logging.error(f"Error sending reminder: {e}")
 
+def kick_inactive_users(client, channel_id: str, no_posts: list):
+    """Kick users who haven't posted from the channel"""
+    try:
+        channel_info = client.conversations_info(channel=channel_id)
+        channel_name = channel_info["channel"]["name"]
+        
+        for user_id in no_posts:
+            try:
+                # Get user's info for the message
+                user_info = client.users_info(user=user_id)
+                first_name = user_info["user"]["profile"].get("first_name", "there")
+                
+                # Kick the user
+                client.conversations_kick(
+                    channel=channel_id,
+                    user=user_id
+                )
+                
+                # Send a DM to the user
+                client.chat_postMessage(
+                    channel=user_id,
+                    text=f"Hi {first_name}, I've removed you from {channel_name} since you haven't posted a check-in this month. You're always welcome to join again in a future month! 🙂"
+                )
+                
+                logging.info(f"Kicked user {user_id} ({first_name}) from channel {channel_id}")
+                
+            except SlackApiError as e:
+                logging.error(f"Error kicking user {user_id}: {e}")
+                
+    except SlackApiError as e:
+        logging.error(f"Error getting channel info: {e}")
+
 def check_and_remind():
     """Check for users who need reminders and send them"""
     logging.info("Cron job started")
     current_day = get_pt_time().day
     logging.info(f"Current day: {current_day} (Pacific time)")
-    
-    # Only run on the 7th of the month
-    if current_day != 7:
-        logging.info("Not the 7th of the month, skipping reminders")
-        return
-        
-    logging.info("Starting monthly check-in reminders")
     
     # Get all workspaces
     workspaces = get_workspace_info()
@@ -191,12 +216,17 @@ def check_and_remind():
             for channel in channels:
                 no_posts, only_intro = get_users_without_posts(client, channel["id"])
                 
-                # Send reminders
-                for user in no_posts:
-                    send_reminder(client, user, channel["id"], False)
-                    
-                for user in only_intro:
-                    send_reminder(client, user, channel["id"], True)
+                # On the 7th, send reminders
+                if current_day == 7:
+                    for user in no_posts:
+                        send_reminder(client, user, channel["id"], False)
+                        
+                    for user in only_intro:
+                        send_reminder(client, user, channel["id"], True)
+                
+                # On the 11th, kick inactive users
+                elif current_day == 11:
+                    kick_inactive_users(client, channel["id"], no_posts)
                     
         except Exception as e:
             logging.error(f"Error processing workspace {workspace_id}: {e}")
