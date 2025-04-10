@@ -141,4 +141,3 @@ this doesn't work for enterprise installations (see code in cron.py)
 * Figure out why App Home isn't working on Commons slack - ask someone who works at the commosn about reinstalling via https://check-in-bot.ruthgracewong.com/slack/install
 * announce new groups on the 25th of previous month
 * add people to new groups automatically with welcome message
-* kick people who haven't posted by the 11th of the month

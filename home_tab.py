@@ -17,6 +17,7 @@ def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
     workspace = get_workspace_info(team_id)
     admin_text = ""
     incompatible_text = ""
+    announcement_text = ""
     
     if workspace and workspace["admins"] and len(workspace["admins"]) > 0:
         admin_usernames = []
@@ -30,7 +31,7 @@ def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
                 logging.error(f"Error getting user info: {repr(e)}")
         admin_text = "\n\n*Administrators:*\n" + ", ".join(admin_usernames)
         
-        # If current user is an admin, show incompatible pairs
+        # If current user is an admin, show incompatible pairs and announcement channel
         if user_id in workspace["admins"]:
             if workspace["incompatible_pairs"]:
                 pair_texts = []
@@ -41,6 +42,13 @@ def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
                 incompatible_text = "\n\n*Users kept apart:*\nNo users are currently being kept apart."
             
             incompatible_text += f"\n\n*Channel naming format:*\n{channel_format}\n_(Administrators can change this with 'set format [new format]')_"
+            
+            # Add announcement channel info
+            announcement_channel = workspace.get("announcement_channel")
+            if announcement_channel:
+                announcement_text = f"\n\n*Announcement channel:*\n<#{announcement_channel}>\n_(Administrators can change this with 'set announcement #channel')_"
+            else:
+                announcement_text = "\n\n*Announcement channel:*\nNo announcement channel set. Administrators can set one with 'set announcement #channel'"
     else:
         admin_text = "\n\n*Administrators:*\nNo administrators found. You can become an administrator by messaging 'king me' to the check-in bot."
     blocks = [
@@ -68,7 +76,7 @@ def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": admin_text + "\n\nAdministrators can ask check-in-bot to keep certain users from being in the same check-in-group." + incompatible_text
+                "text": admin_text + "\n\nAdministrators can ask check-in-bot to keep certain users from being in the same check-in-group." + incompatible_text + announcement_text
             }
         }
     ]

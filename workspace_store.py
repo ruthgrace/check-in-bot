@@ -50,6 +50,7 @@ def ensure_workspace_exists(team_id: str, team_name: str):
             "admins": [],
             "incompatible_pairs": [],
             "channel_format": "check-ins-[year]-[month]",  # Default format
+            "announcement_channel": None,  # Default to None
             "installed_at": datetime.now().isoformat()
         }
         save_workspace_data(data)
@@ -180,4 +181,22 @@ def update_channel_format(team_id: str, format_str: str) -> tuple:
         logging.info(f"Updated channel format for workspace {team_id}: {format_str}")
         return True, ""
         
-    return False, "Workspace not found" 
+    return False, "Workspace not found"
+
+def update_announcement_channel(team_id: str, channel_id: str) -> bool:
+    """Update the announcement channel for a workspace
+    
+    Args:
+        team_id: The workspace team ID
+        channel_id: The channel ID to use for announcements
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    data = get_workspace_info()
+    if team_id in data:
+        data[team_id]["announcement_channel"] = channel_id
+        save_workspace_data(data)
+        logging.info(f"Updated announcement channel for workspace {team_id}: {channel_id}")
+        return True
+    return False 

@@ -11,7 +11,7 @@ from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 import logging
-from workspace_store import get_workspace_info, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, update_channel_format
+from workspace_store import get_workspace_info, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, update_channel_format, update_announcement_channel
 from home_tab import register_home_tab_handlers
 
 # Add this near the top of your file
@@ -208,13 +208,13 @@ def handle_admin_request(client, event, logger):
     """Handle 'king me' messages and admin verification"""
     text = event.get("text", "").strip().lower()
     
-    # Check if user is an admin for keep apart commands
+    # Check if user is an admin for admin-only commands
     workspace = get_workspace_info(event["team"])
     if not workspace or "admins" not in workspace or event["user"] not in workspace["admins"]:
-        if text.startswith("keep apart"):
+        if text.startswith("keep apart") or text.startswith("set format") or text.startswith("set announcement"):
             client.chat_postMessage(
                 channel=event["channel"],
-                text="❌ Only administrators can use the 'keep apart' command."
+                text="❌ Only administrators can use this command."
             )
             return True
         return False
@@ -266,6 +266,30 @@ def handle_admin_request(client, event, logger):
             client.chat_postMessage(
                 channel=event["channel"],
                 text=f"❌ Invalid format: {error}\nFormat must include [year] and [month]. [number] is optional."
+            )
+        return True
+
+    # Handle set announcement channel command
+    if text.startswith("set announcement"):
+        # Extract channel ID from mention (format: <#C123ABC>)
+        channel_mention = re.search(r'<#([A-Z0-9]+)\|?[^>]*>', event["text"])
+        if not channel_mention:
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="❌ Please mention a channel, like: set announcement #general"
+            )
+            return True
+            
+        channel_id = channel_mention.group(1)
+        if update_announcement_channel(event["team"], channel_id):
+            client.chat_postMessage(
+                channel=event["channel"],
+                text=f"✅ Announcement channel set to <#{channel_id}>"
+            )
+        else:
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="❌ Failed to update announcement channel."
             )
         return True
     
