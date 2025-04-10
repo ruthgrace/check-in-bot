@@ -201,7 +201,6 @@ def update_announcement_channel(team_id: str, channel_id: str) -> bool:
         return True
     return False
 
-
 def update_workspace_info(workspace_id: str, updates: dict):
     """Update workspace information"""
     workspaces = get_workspace_info()
@@ -215,3 +214,10 @@ def update_workspace_info(workspace_id: str, updates: dict):
 def update_custom_announcement(workspace_id: str, announcement_text: str):
     """Update the custom announcement text for a workspace"""
     update_workspace_info(workspace_id, {"custom_announcement_text": announcement_text})
+
+def update_announcement_tag(workspace_id: str, tag_type: str):
+    """Update the announcement tag type for a workspace (here or channel)"""
+    if tag_type not in ["here", "channel"]:
+        return (False, "Tag type must be either 'here' or 'channel'")
+    update_workspace_info(workspace_id, {"announcement_tag": tag_type})
+    return (True, "")

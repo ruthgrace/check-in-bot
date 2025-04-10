@@ -79,9 +79,14 @@ def build_announcement_message(workspace_info: dict):
     custom_text = workspace_info.get("custom_announcement_text", "")
     if not custom_text:
         custom_text = ""
-    
+
+    # Get the tag type
+    tag_type = workspace_info.get("announcement_tag", "channel")
+    if not tag_type:
+        tag_type = "channel"
+        update_announcement_tag(workspace_info["team_id"], tag_type)
     # Create the message
-    message = f"It's almost {next_month_name}! {month_emoji} @channel Please react to this message if you want to opt in for {next_month_name}. {custom_text}\n\n:sun_with_face: If you would like to try daily checkins\n:star2: If you would like to do weekly checkins (in the same channel)"
+    message = f"It's almost {next_month_name}! {month_emoji} <!{tag_type}> Please react to this message if you want to opt in for {next_month_name}. {custom_text}\n\n:sun_with_face: If you would like to try daily checkins\n:star2: If you would like to do weekly checkins (in the same channel)"
     
     return message
 
@@ -231,7 +236,6 @@ def post_monthly_signup(client, workspace_info: dict):
             logging.info("No announcement channel set for this workspace, skipping monthly signup")
             return
         message = build_announcement_message(workspace_info)
-        
         
         # Post the message
         result = client.chat_postMessage(

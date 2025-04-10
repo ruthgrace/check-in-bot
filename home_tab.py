@@ -142,9 +142,9 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
     # Add announcement channel info
     announcement_channel = workspace_info.get("announcement_channel")
     if announcement_channel:
-        announcement_text = f"\n\n*Announcement channel:*\n<#{announcement_channel}>\n(Administrators can change this with `set announce channel #channel`)"
+        announcement_text = f"\n\n*Announcement channel:*\n<#{announcement_channel}>\n(Administrators can change this with `set announcement channel #channel`)"
     else:
-        announcement_text = "\n\n*Announcement channel:*\nNo announcement channel set. Administrators can set one with `set announce channel #channel`"
+        announcement_text = "\n\n*Announcement channel:*\nNo announcement channel set. Administrators can set one with `set announcement channel #channel`"
     blocks.append({
         "type": "section",
         "text": {
@@ -154,12 +154,11 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
     })
 
     # Add custom announcement text section
-    logging.info(f"workspace_info: {workspace_info}")
     custom_announcement = workspace_info.get("custom_announcement_text", "")
     if custom_announcement:
-        custom_announcement_text = f"*Custom Announcement Text:*\n{custom_announcement}\nUse `set announce text [Your text here]` to set.\n\nThis is what your monthly signup message will look like:\n\n{build_announcement_message(workspace_info)}"
+        custom_announcement_text = f"*Custom Announcement Text:*\n{custom_announcement}\nUse `set announcement text [Your text here]` to set or `set announcement tag [here|channel]` to set the tag type.\n\nThis is what your monthly signup message will look like:\n\n{build_announcement_message(workspace_info)}"
     else:
-        custom_announcement_text = f"*Custom Announcement Text:*\nNo custom announcement text set.\nUse `set announce text [Your text here]` to set.\n\nThis is what your monthly signup message will look like. Your custom text will apear after the 2nd sentence:\n\n{build_announcement_message(workspace_info)}"
+        custom_announcement_text = f"*Custom Announcement Text:*\nNo custom announcement text set.\nUse `set announcement text [Your text here]` to set or `set announcement tag [here|channel]` to set the tag type.\n\nThis is what your monthly signup message will look like. Your custom text will apear after the 2nd sentence:\n\n{build_announcement_message(workspace_info)}"
     blocks.append({
         "type": "section",
         "text": {
