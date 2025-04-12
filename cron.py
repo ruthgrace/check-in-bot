@@ -140,28 +140,23 @@ def get_users_without_posts(client, channel_id: str):
     try:
         # Get channel members
         members = client.conversations_members(channel=channel_id)["members"]
-        
         # Get messages from the last month
-        messages = client.conversations_history(channel=channel_id)["messages"]
-        
+        messages = client.conversations_history(channel=channel_id, limit=999)["messages"]
         # Track who has posted what
         posted_users = set()  # Users who posted in main channel
         thread_only_users = set()  # Users who only posted in threads
-        
         # First find the welcome message
         welcome_msg = None
         for msg in messages:
             if msg.get("text", "").startswith("Welcome to"):
                 welcome_msg = msg
                 break
-        
         if welcome_msg:
             # Get all replies in the intro thread
             intro_thread = client.conversations_replies(
                 channel=channel_id,
                 ts=welcome_msg["ts"]
             )
-            
             # Add users who posted in the intro thread
             for reply in intro_thread["messages"][1:]:  # Skip the welcome message
                 user = reply.get("user")
@@ -176,7 +171,7 @@ def get_users_without_posts(client, channel_id: str):
             user = msg.get("user")
             if user:
                 # If message is in main channel (not just a thread broadcast)
-                if not msg.get("thread_ts") or msg.get("subtype") == "thread_broadcast":
+                if not msg.get("thread_ts") or msg.get("ts") == msg.get("thread_ts") or (msg.get("subtype") == "thread_broadcast"):
                     posted_users.add(user)
                     # Remove from thread_only if they've posted in main channel
                     if user in thread_only_users:
@@ -229,20 +224,21 @@ def kick_inactive_users(client, channel_id: str, no_posts: list):
                 # Get user's info for the message
                 user_info = client.users_info(user=user_id)
                 first_name = user_info["user"]["profile"].get("first_name", "there")
-                
-                # Kick the user
-                client.conversations_kick(
-                    channel=channel_id,
-                    user=user_id
-                )
-                
-                # Send a DM to the user
-                client.chat_postMessage(
-                    channel=user_id,
-                    text=f"Hi {first_name}, I've removed you from {channel_name} since you haven't posted a check-in this month. You're always welcome to join again in a future month! 🙂"
-                )   
-                dm_admins(client, workspace_info, f"Kicked user <@{user_id}> from channel <#{channel_id}>")
-                logging.info(f"Kicked user {user_id} ({first_name}) from channel {channel_id}")
+
+                if first_name != "check-in-bot":
+                    # Kick the user
+                    client.conversations_kick(
+                        channel=channel_id,
+                        user=user_id
+                    )
+                    
+                    # Send a DM to the user
+                    client.chat_postMessage(
+                        channel=user_id,
+                        text=f"Hi {first_name}, I've removed you from {channel_name} since you haven't posted a check-in this month. You're always welcome to join again in a future month! 🙂"
+                    )   
+                    dm_admins(client, workspace_info, f"Kicked user <@{user_id}> from channel <#{channel_id}>")
+                    logging.info(f"Kicked user {user_id} ({first_name}) from channel {channel_id}")
                 
             except SlackApiError as e:
                 logging.error(f"Error kicking user {user_id} ({first_name}) from channel {channel_id}: {e}")
@@ -433,10 +429,8 @@ if __name__ == "__main__":
             elif current_day == 7 or current_day == 11:
                 # Get current month's channels
                 channels = get_current_month_channels(client, workspace_info)
-            
                 for channel in channels:
                     no_posts, only_intro = get_users_without_posts(client, channel["id"])
-                    
                     # On the 7th, send reminders
                     if current_day == 7:
                         for user in no_posts:
