@@ -297,6 +297,131 @@ def post_monthly_signup(client, workspace_info: dict):
         logging.error(f"Error posting monthly signup: {e}")
         dm_admins(client, workspace_info, f"Error posting monthly signup: {e}")
 
+def get_active_users_from_previous_month(client, workspace_info: dict):
+    """Get users who were active in the LAST WEEK of the previous month
+    
+    Args:
+        client: Slack client
+        workspace_info: Workspace info dictionary
+        
+    Returns:
+        tuple: (daily_posters, weekly_posters) - Sets of user IDs classified by activity level
+    """
+    # Track user message counts
+    user_message_counts = {}
+    
+    try:
+        # Calculate previous month
+        now = get_pt_time()
+        if now.month == 1:  # January
+            prev_month_year = now.year - 1
+            prev_month = 12  # December
+        else:
+            prev_month_year = now.year
+            prev_month = now.month - 1
+            
+        prev_month_name = datetime(prev_month_year, prev_month, 1).strftime("%B").lower()
+        prev_month_number = datetime(prev_month_year, prev_month, 1).strftime("%m")  # 01-12 format
+        
+        # Calculate the last week of the previous month
+        first_day_of_current_month = (datetime(now.year, now.month, 1))
+        last_week_start_date = first_day_of_current_month - timedelta(days=7)
+        
+        logging.info(f"Looking for users active between {last_week_start_date.strftime('%Y-%m-%d')} and end of {prev_month_name}")
+        
+        # Get the channel format from workspace settings
+        channel_format = workspace_info.get("channel_format", "check-ins-[year]-[month]")
+        
+        # Create channel name pattern for the previous month's base format (without numbers)
+        base_pattern = channel_format.replace("[year]", str(prev_month_year))
+        
+        # Create two base patterns - one with month name, one with month number
+        base_pattern_name = base_pattern.replace("[month]", prev_month_name)
+        base_pattern_number = base_pattern.replace("[month]", prev_month_number)
+        
+        # If [number] is in the pattern, remove it for base matching
+        if "[number]" in base_pattern_name:
+            # The pattern up to the [number] part
+            base_pattern_name = base_pattern_name.split("[number]")[0]
+            base_pattern_number = base_pattern_number.split("[number]")[0]
+            
+        logging.info(f"Looking for previous month channels that start with: '{base_pattern_name}' or '{base_pattern_number}'")
+        
+        # List all non-archived channels (using exclude_archived=True)
+        result = client.conversations_list(
+            types="public_channel,private_channel",
+            exclude_archived=True
+        )
+        matching_channels = []
+        
+        for channel in result["channels"]:
+            channel_name = channel["name"]
+            
+            # Check if channel name starts with our base pattern
+            if (channel_name.startswith(base_pattern_name) or 
+                channel_name.startswith(base_pattern_number)):
+                matching_channels.append(channel)
+                logging.info(f"Found matching previous month channel: {channel_name}")
+                
+        logging.info(f"Found {len(matching_channels)} matching channels for previous month")
+        
+        # Process each matching channel
+        for channel in matching_channels:
+            try:
+                # Get channel history
+                history = client.conversations_history(channel=channel["id"])
+                
+                # Count of messages found in last week
+                last_week_msg_count = 0
+                
+                for msg in history["messages"]:
+                    # Skip system messages
+                    if msg.get("subtype") in ["channel_join", "channel_leave", "channel_archive", "channel_unarchive"]:
+                        continue
+                        
+                    # Get message timestamp
+                    msg_ts = float(msg["ts"])
+                    msg_date = datetime.fromtimestamp(msg_ts)
+                    
+                    # If message is from the last week of the month
+                    if msg_date >= last_week_start_date:
+                        last_week_msg_count += 1
+                        user_id = msg.get("user")
+                        if user_id:
+                            # Increment user's message count
+                            if user_id in user_message_counts:
+                                user_message_counts[user_id] += 1
+                            else:
+                                user_message_counts[user_id] = 1
+                            
+                logging.info(f"Found {last_week_msg_count} messages from the last week in {channel['name']}")
+                            
+            except Exception as e:
+                logging.error(f"Error getting history for channel {channel['name']}: {e}")
+        
+        # Classify users as daily or weekly posters based on message count
+        daily_posters = set()
+        weekly_posters = set()
+        
+        # Users with more than 2 messages are considered daily posters
+        DAILY_THRESHOLD = 2
+        
+        for user_id, count in user_message_counts.items():
+            if count > DAILY_THRESHOLD:
+                daily_posters.add(user_id)
+                logging.info(f"User {user_id} classified as daily poster with {count} messages")
+            else:
+                weekly_posters.add(user_id)
+                logging.info(f"User {user_id} classified as weekly poster with {count} messages")
+                
+        logging.info(f"Found {len(daily_posters)} daily posters and {len(weekly_posters)} weekly posters from last week of {prev_month_name}")
+        
+        return daily_posters, weekly_posters
+        
+    except Exception as e:
+        logging.error(f"Error finding active users from previous month: {e}")
+        raise
+
 def make_new_checkin_groups(client, workspace_info: dict):
     """Make new checkin groups for the current month"""
     # Get the announcement channel
@@ -335,6 +460,28 @@ def make_new_checkin_groups(client, workspace_info: dict):
             daily_posters.update(react["users"])
         elif react["name"] == "star2":
             weekly_posters.update(react["users"])
+    
+    # Check if auto-add active users is enabled
+    auto_add_enabled = workspace_info.get("auto_add_active_users", False)
+    if auto_add_enabled:
+        logging.info("Auto-add active users is enabled - getting active users from previous month")
+        
+        # Get users who were active in the previous month, classified by activity level
+        auto_daily_posters, auto_weekly_posters = get_active_users_from_previous_month(client, workspace_info)
+        
+        # Add active users who didn't explicitly opt-in
+        for user_id in auto_daily_posters:
+            if user_id not in daily_posters and user_id not in weekly_posters:
+                daily_posters.add(user_id)
+                logging.info(f"Auto-adding user {user_id} as daily poster")
+                
+        for user_id in auto_weekly_posters:
+            if user_id not in daily_posters and user_id not in weekly_posters:
+                weekly_posters.add(user_id)
+                logging.info(f"Auto-adding user {user_id} as weekly poster")
+                
+        logging.info(f"Auto-added {len(auto_daily_posters & (daily_posters | weekly_posters))} daily posters and {len(auto_weekly_posters & (daily_posters | weekly_posters))} weekly posters")
+    
     # admin should be in all groups, will be added separately
     admins = set(workspace_info['admins'])
     daily_posters = daily_posters - admins

@@ -236,3 +236,16 @@ def update_announcement_timestamp(workspace_id: str, channel_id: str, timestamp:
             "ts": timestamp
         }
     })
+
+def update_auto_add_setting(workspace_id: str, enabled: bool):
+    """Update the setting for automatically adding active users from previous month
+    
+    Args:
+        workspace_id: The workspace team ID
+        enabled: Whether to auto-add active users
+        
+    Returns:
+        tuple: (success, message)
+    """
+    update_workspace_info(workspace_id, {"auto_add_active_users": enabled})
+    return (True, "")

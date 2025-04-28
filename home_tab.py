@@ -172,6 +172,21 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
         }
     })
 
+    # Add auto-add active users setting
+    auto_add_enabled = workspace_info.get("auto_add_active_users", False)
+    auto_add_status = "✅ Enabled" if auto_add_enabled else "❌ Disabled (default)"
+    auto_add_text = f"*Auto-add Active Users:* {auto_add_status}\n" + \
+                   "When enabled, users who posted in the previous month will automatically be added to new channels.\n" + \
+                   "Use `set auto-add on` or `set auto-add off` to change this setting."
+    
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": auto_add_text
+        }
+    })
+
     return {
         "type": "home",
         "blocks": blocks

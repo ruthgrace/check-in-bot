@@ -11,7 +11,7 @@ from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 import logging
-from workspace_store import get_workspace_info, ensure_workspace_exists, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, update_channel_format, update_announcement_channel, update_custom_announcement, update_announcement_tag
+from workspace_store import get_workspace_info, ensure_workspace_exists, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, update_channel_format, update_announcement_channel, update_custom_announcement, update_announcement_tag, update_auto_add_setting
 from home_tab import register_home_tab_handlers
 
 # Add this near the top of your file
@@ -239,7 +239,7 @@ def handle_admin_request(client, event, logger):
     # Check if user is an admin for admin-only commands
     workspace = get_workspace_info(event["team"])
     if not workspace or "admins" not in workspace or event["user"] not in workspace["admins"]:
-        if text.startswith("keep apart") or text.startswith("set channel format") or text.startswith("set announcement"):
+        if text.startswith("keep apart") or text.startswith("set channel format") or text.startswith("set announcement") or text.startswith("set auto-add"):
             client.chat_postMessage(
                 channel=event["channel"],
                 text="❌ Only administrators can use this command."
@@ -264,6 +264,31 @@ def handle_admin_request(client, event, logger):
             text=f"✅ <@{mentions[0]}> and <@{mentions[1]}> will be kept apart in future check-in groups."
         )
         return True
+    
+    # Handle auto-add setting
+    if text.startswith("set auto-add"):
+        setting = text[len("set auto-add"):].strip().lower()
+        
+        if setting == "on" or setting == "enable" or setting == "true":
+            update_auto_add_setting(event["team"], True)
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="✅ Auto-add active users has been *enabled*. Users who posted in the previous month's channels will be automatically added to new channels."
+            )
+            return True
+        elif setting == "off" or setting == "disable" or setting == "false":
+            update_auto_add_setting(event["team"], False)
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="✅ Auto-add active users has been *disabled*. Users will need to explicitly opt-in via reactions to be added to new channels."
+            )
+            return True
+        else:
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="❌ Invalid auto-add setting. Please use `set auto-add on` or `set auto-add off`."
+            )
+            return True
     
     # Handle set format command
     if text.startswith("set channel format"):
