@@ -1,17 +1,15 @@
 import logging
+import traceback
 from datetime import datetime
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 from workspace_store import ensure_workspace_exists, update_channel_format
 from cron import build_announcement_message
-def get_home_view(user_id: str, team_id: str, client, get_workspace_info):
+
+def get_home_view(user_id: str, team_id: str, team_name: str, client, get_workspace_info):
     """Create the home tab view"""    
-    # Check if we need to create/update workspace info
-    team_info = client.team_info()
-    team_name = team_info["team"]["name"]
-    
     # Ensure workspace exists in storage
-    ensure_workspace_exists(team_id, team_name)
+    ensure_workspace_exists(team_id)
     
     # Get workspace info from the event context
     workspace_info = get_workspace_info(team_id)
@@ -82,13 +80,20 @@ def register_home_tab_handlers(app):
             if event["tab"] != "home":
                 return
             logger.info(f"Publishing home view for user {event['user']}")
+            
+            # Get team_id from the client's context
+            team_info = client.team_info()
+            team_id = team_info["team"]["id"]
+            team_name = team_info["team"]["name"]
+                
             result = client.views_publish(
                 user_id=event["user"],
-                view=get_home_view(event["user"], event["view"]["team_id"], client, app.get_workspace_info)
+                view=get_home_view(event["user"], team_id, team_name, client, app.get_workspace_info)
             )
         except Exception as e:
             logger.error(f"Error publishing home tab: {str(e)}")
-            logger.error(f"Full error details: {repr(e)}")
+            logger.error(f"Full error details:\n{traceback.format_exc()}")
+            logger.error(f"Event object: {event}")
 
 def build_admin_home(workspace_info: dict, blocks: list) -> dict:
     """Build the admin home tab view"""
@@ -130,7 +135,7 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
     if not channel_format:
         update_channel_format(team_id, "check-ins-[year]-[month]")
         channel_format = workspace_info.get("channel_format")
-    channel_format_text = f"\n\n*Channel naming format:*\n{channel_format}\n(Administrators can change this with `set format [new format]`)"
+    channel_format_text = f"\n\n*Channel naming format:*\n{channel_format}\n(Administrators can change this with `set channel format [new format]`)"
     blocks.append({
         "type": "section",
         "text": {
@@ -156,7 +161,7 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
     # Add custom announcement text section
     custom_announcement = workspace_info.get("custom_announcement_text", "")
     if custom_announcement:
-        custom_announcement_text = f"*Custom Announcement Text:*\n{custom_announcement}\nUse `set announcement text [Your text here]` to set or `set announcement tag [here|channel]` to set the tag type.\n\nThis is what your monthly signup message will look like:\n\n{build_announcement_message(workspace_info)}"
+        custom_announcement_text = f"*Custom Announcement Text:*\nUse `set announcement text [Your text here]` to set or `set announcement tag [here|channel]` to set the tag type.\n\nThis is what your monthly signup message will look like:\n\n{build_announcement_message(workspace_info)}"
     else:
         custom_announcement_text = f"*Custom Announcement Text:*\nNo custom announcement text set.\nUse `set announcement text [Your text here]` to set or `set announcement tag [here|channel]` to set the tag type.\n\nThis is what your monthly signup message will look like. Your custom text will apear after the 2nd sentence:\n\n{build_announcement_message(workspace_info)}"
     blocks.append({

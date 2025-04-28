@@ -11,7 +11,7 @@ from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 import logging
-from workspace_store import get_workspace_info, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, update_channel_format, update_announcement_channel, update_custom_announcement, update_announcement_tag
+from workspace_store import get_workspace_info, ensure_workspace_exists, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, update_channel_format, update_announcement_channel, update_custom_announcement, update_announcement_tag
 from home_tab import register_home_tab_handlers
 
 # Add this near the top of your file
@@ -143,7 +143,9 @@ def parse_messages(check_in_entries, message_data, user):
 
 def should_react(client, event, logger):
   # don't react to messages in announcement channel
-  if event["channel"] == get_workspace_info(event["team"])["announcement_channel"]:
+  ensure_workspace_exists(event["team"])
+  logger.info(f"DEBUG: get_workspace_info(event['team']): {get_workspace_info(event['team'])}")
+  if "announcement_channel" in get_workspace_info(event['team']) and event["channel"] == get_workspace_info(event['team'])["announcement_channel"]:
     return False
   if "text" not in event.keys():
     return False
@@ -209,19 +211,9 @@ def post_emojis(client, event, logger, emojis):
 
 def handle_admin_request(client, event, logger):
     """Handle 'king me' messages and admin verification"""
+    logger.info(f"RUTH DEBUG: received admin request")
     text = event.get("text", "").strip().lower()
-    
-    # Check if user is an admin for admin-only commands
-    workspace = get_workspace_info(event["team"])
-    if not workspace or "admins" not in workspace or event["user"] not in workspace["admins"]:
-        if text.startswith("keep apart") or text.startswith("set format") or text.startswith("set announcement"):
-            client.chat_postMessage(
-                channel=event["channel"],
-                text="❌ Only administrators can use this command."
-            )
-            return True
-        return False
-    
+
     if text == "king me":
         passcode = generate_admin_passcode(event["team"], event["user"])
         logger.info(f"Generating admin passcode for {event['user']} in team {event['team']}: {passcode}")
@@ -230,6 +222,30 @@ def handle_admin_request(client, event, logger):
             text=f"Please verify that you want to become an administrator by replying with the passcode seen in the server logs."
         )
         return True
+    # Check if it's a passcode verification attempt
+    if text.isdigit() and len(text) == 6:
+        if verify_admin_passcode(event["team"], event["user"], text):
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="✅ Verification successful! You are now an administrator."
+            )
+        else:
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="❌ Invalid or expired passcode. Please try 'king me' again if you want to become an administrator."
+            )
+        return True
+    
+    # Check if user is an admin for admin-only commands
+    workspace = get_workspace_info(event["team"])
+    if not workspace or "admins" not in workspace or event["user"] not in workspace["admins"]:
+        if text.startswith("keep apart") or text.startswith("set channel format") or text.startswith("set announcement"):
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="❌ Only administrators can use this command."
+            )
+            return True
+        return False
     
     # Handle keep apart command
     if text.startswith("keep apart"):
@@ -340,20 +356,6 @@ def handle_admin_request(client, event, logger):
                 text="❌ Invalid announcement command. Valid commands are channel, tag, and text."
             )
         return True
-            
-    # Check if it's a passcode verification attempt
-    if text.isdigit() and len(text) == 6:
-        if verify_admin_passcode(event["team"], event["user"], text):
-            client.chat_postMessage(
-                channel=event["channel"],
-                text="✅ Verification successful! You are now an administrator."
-            )
-        else:
-            client.chat_postMessage(
-                channel=event["channel"],
-                text="❌ Invalid or expired passcode. Please try 'king me' again if you want to become an administrator."
-            )
-        return True
     return False
 
 @app.event("message")
@@ -361,6 +363,7 @@ def respond_to_message(client, event, logger):
   # direct messages to the bot are only used for extracting check ins
   if is_dm(event):
     # Check for admin requests first
+    logger.info(f"RUTH DEBUG: received DM")
     if handle_admin_request(client, event, logger):
         return
     

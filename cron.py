@@ -64,6 +64,21 @@ def get_pt_time():
     """Get current time in PT (UTC-8, ignoring daylight savings)"""
     return datetime.utcnow() - timedelta(hours=8)
 
+def is_last_day_of_month():
+    """Check if today is the last day of the month"""
+    today = get_pt_time()
+    # Create a datetime for the first day of the next month
+    if today.month == 12:
+        next_month = datetime(today.year + 1, 1, 1)
+    else:
+        next_month = datetime(today.year, today.month + 1, 1)
+    
+    # Subtract one day to get the last day of the current month
+    last_day = next_month - timedelta(days=1)
+    
+    # Return True if today is the last day of the month
+    return today.day == last_day.day
+
 def build_announcement_message(workspace_info: dict):
     """Build the announcement message for the monthly signup"""
     
@@ -442,7 +457,8 @@ if __name__ == "__main__":
                     # On the 11th, kick inactive users
                     elif current_day == 11:
                         kick_inactive_users(client, channel["id"], no_posts)
-            elif current_day == 1:
+            # Create new check-in groups on the last day of the month instead of the 1st of next month
+            elif is_last_day_of_month():
                 make_new_checkin_groups(client, workspace_info)
         except Exception as e:
             logging.error(f"Error processing workspace {workspace_id}: {e}")
