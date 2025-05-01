@@ -11,7 +11,7 @@ from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 import logging
-from workspace_store import get_workspace_info, ensure_workspace_exists, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, update_channel_format, update_announcement_channel, update_custom_announcement, update_announcement_tag, update_auto_add_setting
+from workspace_store import get_workspace_info, ensure_workspace_exists, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, update_channel_format, update_announcement_channel, update_custom_announcement, update_announcement_tag, update_auto_add_setting, update_announcement_timestamp
 from home_tab import register_home_tab_handlers
 
 # Add this near the top of your file
@@ -335,6 +335,34 @@ def handle_admin_request(client, event, logger):
                     channel=event["channel"],
                     text="❌ Failed to update announcement channel."
                 )
+            return True
+        elif announcement_command == "link":
+            # Extract a Slack message link
+            # Format should be like: https://team-name.slack.com/archives/C0123456789/p1234567890123456
+            link_pattern = re.search(r'(https?://[^/]+/archives/([A-Z0-9]+)/p(\d+))', event["text"])
+            if not link_pattern:
+                client.chat_postMessage(
+                    channel=event["channel"],
+                    text="❌ Please provide a valid Slack message link. Example: set announcement link https://workspace.slack.com/archives/C0123456789/p1234567890123456"
+                )
+                return True
+                
+            message_link = link_pattern.group(1)
+            channel_id = link_pattern.group(2)
+            message_ts = link_pattern.group(3)
+            
+            # Convert the timestamp format from Slack link to Slack API format
+            # Slack links use format p1234567890123456, but the API needs 1234567890.123456
+            if len(message_ts) >= 13:  # Ensure enough digits
+                message_ts = message_ts[:10] + "." + message_ts[10:]
+            
+            # Update the workspace info with the announcement timestamp
+            update_announcement_timestamp(event["team"], channel_id, message_ts)
+            
+            client.chat_postMessage(
+                channel=event["channel"],
+                text=f"✅ Last announcement message has been set to: <{message_link}|View announcement>"
+            )
             return True
         elif announcement_command == "tag":
             try:

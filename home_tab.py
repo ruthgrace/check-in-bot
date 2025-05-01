@@ -172,6 +172,25 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
         }
     })
 
+    # Add last announcement message link section if it exists
+    last_announcement = workspace_info.get("announcement_timestamp")
+    if last_announcement and "channel" in last_announcement and "ts" in last_announcement:
+        channel_id = last_announcement["channel"]
+        timestamp = last_announcement["ts"]
+        # Format the permalink URL
+        workspace_domain = workspace_info.get("domain", "slack")
+        permalink = f"https://{workspace_domain}.slack.com/archives/{channel_id}/p{timestamp.replace('.', '')}"
+        last_announcement_text = f"*Last Announcement:*\n<{permalink}|View last announcement message>\n(Administrators can update this with `set announcement link [message link]`)"
+    else:
+        last_announcement_text = "*Last Announcement:*\nNo last announcement message set.\nAdministrators can set one with `set announcement link [message link]`"
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": last_announcement_text
+        }
+    })
+
     # Add auto-add active users setting
     auto_add_enabled = workspace_info.get("auto_add_active_users", False)
     auto_add_status = "✅ Enabled" if auto_add_enabled else "❌ Disabled (default)"

@@ -6,7 +6,7 @@ from slack_sdk.oauth.installation_store import FileInstallationStore
 from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.errors import SlackApiError
 import tokens
-from workspace_store import get_workspace_info
+from workspace_store import get_workspace_info, update_announcement_timestamp, update_announcement_tag
 
 logging.basicConfig(
     level=logging.INFO,
@@ -290,6 +290,11 @@ def post_monthly_signup(client, workspace_info: dict):
             timestamp=result["ts"],
             name="star2"
         )
+        
+        # Update the announcement timestamp in workspace info
+        update_announcement_timestamp(workspace_info["team_id"], announcement_channel, result["ts"])
+        logging.info(f"Updated last announcement timestamp for workspace {workspace_info['team_id']}")
+        
         dm_admins(client, workspace_info, f"Posted monthly signup message to channel <#{announcement_channel}>")
         logging.info(f"Posted monthly signup message to channel <#{announcement_channel}>")
         
