@@ -464,6 +464,9 @@ def make_new_checkin_groups(client, workspace_info: dict):
         auth_test = client.auth_test()
         logging.info(f"Bot authenticated as: {auth_test.get('user')} in team {auth_test.get('team')}")
         logging.info(f"Bot permissions: {auth_test.get('scope', 'unknown')}")
+        
+        # Get the bot's own user ID to exclude from groups
+        bot_user_id = auth_test.get('user_id')
     except SlackApiError as e:
         logging.error(f"Authentication test failed: {e}")
         dm_admins(client, workspace_info, f"Error: Authentication test failed: {e}")
@@ -503,6 +506,15 @@ def make_new_checkin_groups(client, workspace_info: dict):
         elif react["name"] == "star2":
             weekly_posters.update(react["users"])
     
+    # Exclude the bot from posters
+    if bot_user_id:
+        if bot_user_id in daily_posters:
+            daily_posters.remove(bot_user_id)
+            logging.info(f"Removed bot user ID {bot_user_id} from daily posters")
+        if bot_user_id in weekly_posters:
+            weekly_posters.remove(bot_user_id)
+            logging.info(f"Removed bot user ID {bot_user_id} from weekly posters")
+    
     # Check if auto-add active users is enabled
     auto_add_enabled = workspace_info.get("auto_add_active_users", False)
     if auto_add_enabled:
@@ -510,6 +522,13 @@ def make_new_checkin_groups(client, workspace_info: dict):
         
         # Get users who were active in the previous month, classified by activity level
         auto_daily_posters, auto_weekly_posters = get_active_users_from_previous_month(client, workspace_info)
+        
+        # Exclude bot from auto-added users
+        if bot_user_id:
+            if bot_user_id in auto_daily_posters:
+                auto_daily_posters.remove(bot_user_id)
+            if bot_user_id in auto_weekly_posters:
+                auto_weekly_posters.remove(bot_user_id)
         
         # Add active users who didn't explicitly opt-in
         for user_id in auto_daily_posters:
