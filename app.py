@@ -86,8 +86,16 @@ def is_dm(event):
     return True
 
 def extract_channel(message):
-  if message.startswith("<#") and message.endswith("|>"):
-    return message[2:-2]
+  # Handle Slack's channel mention format: <#C12345|channel-name>
+  if message.startswith("<#") and ">" in message:
+    # Extract the channel ID which is between "<#" and either "|" or ">"
+    channel_parts = message[2:].split("|", 1)
+    channel_id = channel_parts[0].strip(">")
+    return channel_id
+  # Also handle case where user just types a channel name like #channel-name
+  elif message.startswith("#"):
+    # This will need to be handled in get_check_ins
+    return message
   return ""
 
 def get_check_ins(client, event, logger, channel_id):
