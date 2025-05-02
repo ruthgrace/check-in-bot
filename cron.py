@@ -130,7 +130,7 @@ def get_current_month_channels(client, workspace_info: dict):
     """Get all check-in channels for the current month"""
     channels = []
     try:
-        result = client.conversations_list(types="public_channel,private_channel")
+        result = client.conversations_list(types="private_channel")
         now = get_pt_time()
         current_month_text = now.strftime("%B").lower()
         current_month_number = now.strftime("%m")  # This will give "01" through "12"
@@ -154,9 +154,9 @@ def get_users_without_posts(client, channel_id: str):
     """
     try:
         # Get channel members
-        members = client.conversations_members(channel=channel_id)["members"]
+        members = client.groups_members(channel=channel_id)["members"]
         # Get messages from the last month
-        messages = client.conversations_history(channel=channel_id, limit=999)["messages"]
+        messages = client.groups_history(channel=channel_id, limit=999)["messages"]
         # Track who has posted what
         posted_users = set()  # Users who posted in main channel
         thread_only_users = set()  # Users who only posted in threads
@@ -168,9 +168,9 @@ def get_users_without_posts(client, channel_id: str):
                 break
         if welcome_msg:
             # Get all replies in the intro thread
-            intro_thread = client.conversations_replies(
+            intro_thread = client.groups_replies(
                 channel=channel_id,
-                ts=welcome_msg["ts"]
+                thread_ts=welcome_msg["ts"]
             )
             # Add users who posted in the intro thread
             for reply in intro_thread["messages"][1:]:  # Skip the welcome message
@@ -205,7 +205,7 @@ def get_users_without_posts(client, channel_id: str):
 def send_reminder(client, user_id: str, channel_id: str, is_intro_only: bool):
     """Send a reminder DM to a user"""
     try:
-        channel_info = client.conversations_info(channel=channel_id)
+        channel_info = client.groups_info(channel=channel_id)
         channel_name = f"<#{channel_id}>"
         
         # Get user's info
@@ -225,14 +225,18 @@ def send_reminder(client, user_id: str, channel_id: str, is_intro_only: bool):
         dm_admins(client, workspace_info, f"Sent reminder to user <@{user_id}> for channel <#{channel_id}>")
         
     except SlackApiError as e:
-        logging.error(f"Error sending reminder: {e}")
-        dm_admins(client, workspace_info, f"Error sending reminder: {e}")
+        error_message = f"Error sending reminder to user {user_id} for channel {channel_id}: {e}"
+        logging.error(error_message)
+        if hasattr(e, 'response') and e.response is not None:
+            logging.error(f"API response: {e.response}")
+        logging.exception(e)  # Log the full stack trace
+        dm_admins(client, workspace_info, error_message)
 
 def kick_inactive_users(client, channel_id: str, no_posts: list):
     """Kick users who haven't posted from the channel"""
     try:
-        channel_info = client.conversations_info(channel=channel_id)
-        channel_name = channel_info["channel"]["name"]
+        channel_info = client.groups_info(channel=channel_id)
+        channel_name = channel_info["group"]["name"]
         
         for user_id in no_posts:
             try:
@@ -242,7 +246,7 @@ def kick_inactive_users(client, channel_id: str, no_posts: list):
 
                 if first_name != "check-in-bot":
                     # Kick the user
-                    client.conversations_kick(
+                    client.groups_kick(
                         channel=channel_id,
                         user=user_id
                     )
@@ -256,11 +260,18 @@ def kick_inactive_users(client, channel_id: str, no_posts: list):
                     logging.info(f"Kicked user {user_id} ({first_name}) from channel {channel_id}")
                 
             except SlackApiError as e:
-                logging.error(f"Error kicking user {user_id} ({first_name}) from channel {channel_id}: {e}")
-                dm_admins(client, workspace_info, f"Error kicking user <@{user_id}> from channel <#{channel_id}>: {e}")
+                error_message = f"Error kicking user {user_id} ({first_name}) from channel {channel_id}: {e}"
+                logging.error(error_message)
+                if hasattr(e, 'response') and e.response is not None:
+                    logging.error(f"API response: {e.response}")
+                dm_admins(client, workspace_info, error_message)
     except SlackApiError as e:
-        logging.error(f"Error getting channel info: {e}")
-        dm_admins(client, workspace_info, f"Error getting channel info for kicking users who haven't posted: {e}")
+        error_message = f"Error getting channel info for kicking users who haven't posted: {e}"
+        logging.error(error_message)
+        if hasattr(e, 'response') and e.response is not None:
+            logging.error(f"API response: {e.response}")
+        logging.exception(e)  # Log the full stack trace
+        dm_admins(client, workspace_info, error_message)
 
 def post_monthly_signup(client, workspace_info: dict):
     """Post the monthly signup message to the announcement channel"""
@@ -299,8 +310,12 @@ def post_monthly_signup(client, workspace_info: dict):
         logging.info(f"Posted monthly signup message to channel <#{announcement_channel}>")
         
     except SlackApiError as e:
-        logging.error(f"Error posting monthly signup: {e}")
-        dm_admins(client, workspace_info, f"Error posting monthly signup: {e}")
+        error_message = f"Error posting monthly signup: {e}"
+        logging.error(error_message)
+        if hasattr(e, 'response') and e.response is not None:
+            logging.error(f"API response: {e.response}")
+        logging.exception(e)  # Log the full stack trace
+        dm_admins(client, workspace_info, error_message)
 
 def get_active_users_from_previous_month(client, workspace_info: dict):
     """Get users who were active in the LAST WEEK of the previous month
@@ -353,10 +368,7 @@ def get_active_users_from_previous_month(client, workspace_info: dict):
         logging.info(f"Looking for previous month channels that start with: '{base_pattern_name}' or '{base_pattern_number}'")
         
         # List all non-archived channels (using exclude_archived=True)
-        result = client.conversations_list(
-            types="public_channel,private_channel",
-            exclude_archived=True
-        )
+        result = client.conversations_list(types="private_channel", exclude_archived=True)
         matching_channels = []
         
         for channel in result["channels"]:
@@ -374,7 +386,7 @@ def get_active_users_from_previous_month(client, workspace_info: dict):
         for channel in matching_channels:
             try:
                 # Get channel history
-                history = client.conversations_history(channel=channel["id"])
+                history = client.conversations_history(channel=channel["id"], limit=999)
                 
                 # Count of messages found in last week
                 last_week_msg_count = 0
@@ -424,7 +436,9 @@ def get_active_users_from_previous_month(client, workspace_info: dict):
         return daily_posters, weekly_posters
         
     except Exception as e:
-        logging.error(f"Error finding active users from previous month: {e}")
+        error_message = f"Error finding active users from previous month: {e}"
+        logging.error(error_message)
+        logging.exception(e)  # Log the full stack trace
         raise
 
 def make_new_checkin_groups(client, workspace_info: dict):
@@ -434,6 +448,25 @@ def make_new_checkin_groups(client, workspace_info: dict):
     if not announcement_channel:
         logging.info("No announcement channel set for this workspace, skipping group creation")
         dm_admins(client, workspace_info, "No announcement channel set for this workspace, skipping group creation")
+        return
+
+    # Log token information (truncated for security)
+    bot_token = client.token
+    if bot_token:
+        logging.info(f"Using bot token: {bot_token[:5]}...{bot_token[-5:]} (length: {len(bot_token)})")
+    else:
+        logging.error("No bot token found!")
+        dm_admins(client, workspace_info, "Error: No bot token found for channel creation")
+        return
+
+    # Check if we have the necessary permissions
+    try:
+        auth_test = client.auth_test()
+        logging.info(f"Bot authenticated as: {auth_test.get('user')} in team {auth_test.get('team')}")
+        logging.info(f"Bot permissions: {auth_test.get('scope', 'unknown')}")
+    except SlackApiError as e:
+        logging.error(f"Authentication test failed: {e}")
+        dm_admins(client, workspace_info, f"Error: Authentication test failed: {e}")
         return
 
     last_announcement_timestamp = workspace_info.get("announcement_timestamp")
@@ -449,8 +482,12 @@ def make_new_checkin_groups(client, workspace_info: dict):
         result = client.reactions_get(channel=channel_id, timestamp=timestamp)
         reactions = result.data["message"].get("reactions", [])
     except SlackApiError as e:
-        logging.error(f"Error getting user reactions to last announcement: {e}")
-        dm_admins(client, workspace_info, f"Error getting user reactions to last announcement: {e}")
+        error_message = f"Error getting user reactions to last announcement: {e}"
+        logging.error(error_message)
+        if hasattr(e, 'response') and e.response is not None:
+            logging.error(f"API response: {e.response}")
+        logging.exception(e)  # Log the full stack trace
+        dm_admins(client, workspace_info, error_message)
         return
 
     if len(reactions) == 0:
@@ -548,23 +585,207 @@ def make_new_checkin_groups(client, workspace_info: dict):
     try:
         for i in range(len(group_memberships)):
             channel_name = channel_format
-            month_name = get_pt_time().strftime('%B')
-            month_two_digits = get_pt_time().strftime('%m')
-            channel_name.replace("[month]", f"{month_two_digits}")
-            channel_name.replace("[year]", f"{get_pt_time().year}")
+            
+            # Calculate the next month (for the new channel)
+            now = get_pt_time()
+            next_month = (now.replace(day=1) + timedelta(days=32)).replace(day=1)
+            next_month_name = next_month.strftime('%B')
+            next_month_number = next_month.strftime('%m')
+            next_month_year = next_month.strftime('%Y')
+            
+            # Use next month's info for channel name
+            # Based on validate_channel_format in workspace_store.py, the only supported tokens are:
+            # [year], [month], and [number]
+            channel_name = channel_name.replace("[month]", next_month_number)
+            channel_name = channel_name.replace("[year]", next_month_year)
+            
+            # Add group number if there are multiple groups
             if len(group_memberships) > 1:
-                channel_name += f"-{i+1}"
-            result = client.conversations_create(name=channel_name, is_private=True)
-            new_channel_id = result.data["channel_id"]
-            # add members to the channel
-            new_users = group_memberships[i].join(",")
-            client.conversations_invite(channel=new_channel_id, users=new_users)
-            # post intro thread
-            client.chat_postMessage(channel=new_channel_id, text=build_intro_message(group_memberships[i], month_name))
-    except SlackApiError as e:
-        logging.error(f"Error creating checkin channels: {e}")
-        dm_admins(client, workspace_info, f"Error creating checkin channels: {e}")
+                if "[number]" in channel_name:
+                    channel_name = channel_name.replace("[number]", str(i+1))
+                else:
+                    channel_name += f"-{i+1}"
+            elif "[number]" in channel_name:
+                # If there's only one group, remove the [number] token
+                channel_name = channel_name.replace("-[number]", "")
+            
+            logging.info(f"Creating channel with name: {channel_name}")
+            
+            try:
+                # First check if the channel already exists
+                existing_channel_id = None
+                try:
+                    # List all private channels
+                    channels_list = client.conversations_list(types="private_channel", exclude_archived=True)
+                    
+                    # Check if any channel matches our name
+                    for existing_channel in channels_list["channels"]:
+                        if existing_channel["name"] == channel_name:
+                            existing_channel_id = existing_channel["id"]
+                            logging.info(f"Found existing channel with name '{channel_name}', using it instead of creating new one")
+                            break
+                            
+                except SlackApiError as list_error:
+                    logging.error(f"Error listing channels: {list_error}")
+                
+                # If channel exists, use it; otherwise, create it
+                if existing_channel_id:
+                    new_channel_id = existing_channel_id
+                else:
+                    # Create a private channel only
+                    logging.info(f"Creating private channel: {channel_name}")
+                    result = client.conversations_create(
+                        name=channel_name,
+                        is_private=True
+                    )
+                    
+                    # Check if the result contains channel data
+                    if "channel" in result and "id" in result["channel"]:
+                        new_channel_id = result["channel"]["id"]
+                    else:
+                        error_detail = f"Error: Response from channel creation didn't contain expected channel data. Response: {result}"
+                        logging.error(error_detail)
+                        dm_admins(client, workspace_info, error_detail)
+                        continue  # Skip to next group
+                
+                # Add members to the channel
+                for user_id in group_memberships[i]:
+                    try:
+                        client.conversations_invite(
+                            channel=new_channel_id, 
+                            users=[user_id]
+                        )
+                    except SlackApiError as user_error:
+                        # If user is already in the channel, this is fine
+                        if "already_in_channel" in str(user_error):
+                            logging.info(f"User {user_id} is already in channel {channel_name}")
+                        else:
+                            # Log error but continue with other users
+                            logging.error(f"Error inviting user {user_id} to channel {channel_name}: {user_error}")
+                
+                # Post intro thread
+                client.chat_postMessage(channel=new_channel_id, text=build_intro_message(group_memberships[i], next_month_name))
+                logging.info(f"Successfully set up channel {channel_name} and added {len(group_memberships[i])} members")
+                
+            except SlackApiError as e:
+                error_detail = f"Error creating or setting up channel '{channel_name}': {e}"
+                logging.error(error_detail)
+                if hasattr(e, 'response') and e.response is not None:
+                    logging.error(f"API response: {e.response}")
+                logging.exception(e)  # Log the full stack trace
+                
+                # Notify admins with additional context for restricted_action error
+                if hasattr(e, 'response') and e.response is not None and "error" in e.response.data:
+                    if e.response.data["error"] == "restricted_action":
+                        error_detail += "\n\nThis may be because the bot doesn't have permissions to create channels or your workspace has restrictions on channel creation. Please check the bot's permissions in your Slack workspace settings."
+                    
+                dm_admins(client, workspace_info, error_detail)
+                # Continue with other channels
+    except Exception as e:
+        error_message = f"Unexpected error in make_new_checkin_groups: {str(e)}"
+        logging.error(error_message)
+        logging.exception(e)  # Log the full stack trace
+        dm_admins(client, workspace_info, error_message)
         return
+
+def run_api_diagnostics(client, workspace_id):
+    """
+    Run comprehensive API diagnostics to debug permission issues
+    
+    Args:
+        client: Slack client with token already set
+        workspace_id: Workspace ID for logging
+    """
+    logging.info("-------- RUNNING API DIAGNOSTICS --------")
+    logging.info("Workspace ID: {}".format(workspace_id))
+    
+    # 1. Check auth and bot identity
+    try:
+        auth_test = client.auth_test()
+        logging.info("Auth test result: {}".format(auth_test))
+        logging.info("Bot name: {}".format(auth_test.get('user')))
+        logging.info("Bot user ID: {}".format(auth_test.get('user_id')))
+        logging.info("Team name: {}".format(auth_test.get('team')))
+        
+        # 2. Check available scopes
+        scopes = auth_test.get('scope', '').split(',')
+        logging.info("Bot scopes ({}):".format(len(scopes)))
+        for scope in sorted(scopes):
+            if scope:  # Avoid empty strings
+                logging.info("  - {}".format(scope))
+                
+        # 3. Check available methods
+        logging.info("Testing API endpoints...")
+        
+        # 3.1 Test conversations.list
+        try:
+            result = client.conversations_list(limit=1, types="private_channel")
+            logging.info("conversations.list works: {}".format(result["ok"]))
+        except Exception as e:
+            logging.error("conversations.list failed: {}".format(e))
+            
+        # 3.2 Test chat.postMessage to bot DM
+        try:
+            result = client.chat_postMessage(
+                channel=auth_test.get('user_id'),
+                text="API diagnostic test message"
+            )
+            logging.info("chat.postMessage works: {}".format(result["ok"]))
+        except Exception as e:
+            logging.error("chat.postMessage failed: {}".format(e))
+            
+        # 3.3 Test channel creation with various parameters
+        test_channel_name = "test-diagnostic-{}".format(int(datetime.utcnow().timestamp()))
+        
+        # 3.3.1 Test with minimum parameters
+        try:
+            logging.info("Testing channel creation with minimum parameters")
+            result = client.conversations_create(
+                name=test_channel_name,
+                is_private=True
+            )
+            logging.info("Channel creation with minimum parameters works: {}".format(result["ok"]))
+            
+            # If successful, clean up by archiving the channel
+            if result["ok"] and "channel" in result and "id" in result["channel"]:
+                client.conversations_archive(channel=result["channel"]["id"])
+                logging.info("Test channel archived")
+                
+        except Exception as e:
+            logging.error("Channel creation with minimum parameters failed: {}".format(e))
+            
+            # Log the full error response
+            if hasattr(e, 'response') and e.response is not None:
+                logging.error("API response: {}".format(e.response))
+                
+                # If we're getting restricted_action, try to get more context
+                if hasattr(e.response, 'data') and "error" in e.response.data and e.response.data["error"] == "restricted_action":
+                    logging.error("Restricted action detected - attempting to get more context")
+                    try:
+                        # Get team info
+                        team_info = client.team_info()
+                        logging.info("Team info: {}".format(team_info))
+                    except Exception as team_err:
+                        logging.error("Could not get team info: {}".format(team_err))
+            
+        # 4. Check workspace settings
+        try:
+            admin_users = []
+            users_list = client.users_list()
+            for user in users_list["members"]:
+                if user.get("is_admin", False):
+                    admin_users.append(user.get("name", "unknown") + " (" + user.get("id", "unknown") + ")")
+            
+            logging.info("Workspace admins: {}".format(", ".join(admin_users)))
+        except Exception as e:
+            logging.error("Could not get workspace admins: {}".format(e))
+            
+    except Exception as e:
+        logging.error("Auth test failed: {}".format(e))
+        if hasattr(e, 'response') and e.response is not None:
+            logging.error("API response: {}".format(e.response))
+            
+    logging.info("-------- API DIAGNOSTICS COMPLETE --------")
 
 if __name__ == "__main__":
     logging.info("Cron job started")
@@ -590,6 +811,11 @@ if __name__ == "__main__":
             client = app.client
             client.token = installation.bot_token
             
+            # Run API diagnostics for this workspace
+            # run_api_diagnostics(client, workspace_id)
+            
+            # Regular processing continues below...
+            
             # On the 25th, post the monthly signup message
             if current_day == 25:
                 post_monthly_signup(client, workspace_info)
@@ -610,7 +836,16 @@ if __name__ == "__main__":
                     elif current_day == 11:
                         kick_inactive_users(client, channel["id"], no_posts)
             # Create new check-in groups on the last day of the month instead of the 1st of next month
-            elif is_last_day_of_month():
+            # elif is_last_day_of_month():
+            elif current_day == 1:
                 make_new_checkin_groups(client, workspace_info)
         except Exception as e:
-            logging.error(f"Error processing workspace {workspace_id}: {e}")
+            error_message = f"Error processing workspace {workspace_id}: {e}"
+            logging.error(error_message)
+            logging.exception(e)  # Log the full stack trace
+            # Try to notify admins if possible
+            try:
+                if client and workspace_info and "admins" in workspace_info:
+                    dm_admins(client, workspace_info, error_message)
+            except Exception as notify_error:
+                logging.error(f"Failed to notify admins about error: {notify_error}")
