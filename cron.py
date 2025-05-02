@@ -677,7 +677,7 @@ def make_new_checkin_groups(client, workspace_info: dict):
                 # Notify admins with additional context for restricted_action error
                 if hasattr(e, 'response') and e.response is not None and "error" in e.response.data:
                     if e.response.data["error"] == "restricted_action":
-                        error_detail += "\n\nThis may be because the bot doesn't have permissions to create channels or your workspace has restrictions on channel creation. Please check the bot's permissions in your Slack workspace settings."
+                        error_detail += "\n\nThis may be because under the Manage Permissions section of the admin panel, members may not have access to create channels."
                     
                 dm_admins(client, workspace_info, error_detail)
                 # Continue with other channels
@@ -836,8 +836,7 @@ if __name__ == "__main__":
                     elif current_day == 11:
                         kick_inactive_users(client, channel["id"], no_posts)
             # Create new check-in groups on the last day of the month instead of the 1st of next month
-            # elif is_last_day_of_month():
-            elif current_day == 1:
+            elif is_last_day_of_month():
                 make_new_checkin_groups(client, workspace_info)
         except Exception as e:
             error_message = f"Error processing workspace {workspace_id}: {e}"
