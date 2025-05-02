@@ -3,7 +3,7 @@ import traceback
 from datetime import datetime
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
-from workspace_store import ensure_workspace_exists, update_channel_format
+from workspace_store import ensure_workspace_exists, update_channel_format, get_always_include_users
 from cron import build_announcement_message
 
 def get_home_view(user_id: str, team_id: str, team_name: str, client, get_workspace_info):
@@ -128,6 +128,21 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
         "text": {
             "type": "mrkdwn",
             "text": incompatible_text
+        }
+    })
+    
+    # Add always include users section
+    always_include_users = workspace_info.get("always_include_users", [])
+    if always_include_users:
+        user_mentions = [f"<@{user_id}>" for user_id in always_include_users]
+        always_include_text = "\n\n*Users always included in check-in groups:*\n" + ", ".join(user_mentions) + "\n\nThese users will automatically be included in the next month's check-in groups as weekly posters."
+    else:
+        always_include_text = "\n\n*Users always included in check-in groups:*\nNo users are currently set to be always included.\nAdministrators can add users with `always include @user1 @user2...`"
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": always_include_text
         }
     })
     

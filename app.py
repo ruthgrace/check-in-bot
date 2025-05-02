@@ -11,7 +11,7 @@ from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 import logging
-from workspace_store import get_workspace_info, ensure_workspace_exists, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, update_channel_format, update_announcement_channel, update_custom_announcement, update_announcement_tag, update_auto_add_setting, update_announcement_timestamp
+from workspace_store import get_workspace_info, ensure_workspace_exists, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, update_channel_format, update_announcement_channel, update_custom_announcement, update_announcement_tag, update_auto_add_setting, update_announcement_timestamp, add_always_include_user, remove_always_include_user
 from home_tab import register_home_tab_handlers
 
 # Add this near the top of your file
@@ -239,13 +239,77 @@ def handle_admin_request(client, event, logger):
     # Check if user is an admin for admin-only commands
     workspace = get_workspace_info(event["team"])
     if not workspace or "admins" not in workspace or event["user"] not in workspace["admins"]:
-        if text.startswith("keep apart") or text.startswith("set channel format") or text.startswith("set announcement") or text.startswith("set auto-add"):
+        if text.startswith("keep apart") or text.startswith("set channel format") or text.startswith("set announcement") or text.startswith("set auto-add") or text.startswith("always include") or text.startswith("remove from always include"):
             client.chat_postMessage(
                 channel=event["channel"],
                 text="❌ Only administrators can use this command."
             )
             return True
         return False
+    
+    # Handle always include commands
+    if text.startswith("always include"):
+        # Extract user IDs from mentions (format: <@U123ABC>)
+        mentions = re.findall(r'<@([A-Z0-9]+)>', event["text"])
+        if len(mentions) == 0:
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="❌ Please mention at least one user to always include, like: always include @user1 @user2"
+            )
+            return True
+            
+        success_messages = []
+        error_messages = []
+        for user_id in mentions:
+            success, message = add_always_include_user(event["team"], user_id)
+            if success:
+                success_messages.append(message)
+            else:
+                error_messages.append(message)
+        
+        response = ""
+        if success_messages:
+            response += "✅ " + "\n".join(success_messages) + "\n"
+        if error_messages:
+            response += "❌ " + "\n".join(error_messages)
+            
+        client.chat_postMessage(
+            channel=event["channel"],
+            text=response.strip()
+        )
+        return True
+    
+    # Handle remove from always include commands
+    if text.startswith("remove from always include"):
+        # Extract user IDs from mentions (format: <@U123ABC>)
+        mentions = re.findall(r'<@([A-Z0-9]+)>', event["text"])
+        if len(mentions) == 0:
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="❌ Please mention at least one user to remove from always include list, like: remove from always include @user1 @user2"
+            )
+            return True
+            
+        success_messages = []
+        error_messages = []
+        for user_id in mentions:
+            success, message = remove_always_include_user(event["team"], user_id)
+            if success:
+                success_messages.append(message)
+            else:
+                error_messages.append(message)
+        
+        response = ""
+        if success_messages:
+            response += "✅ " + "\n".join(success_messages) + "\n"
+        if error_messages:
+            response += "❌ " + "\n".join(error_messages)
+            
+        client.chat_postMessage(
+            channel=event["channel"],
+            text=response.strip()
+        )
+        return True
     
     # Handle keep apart command
     if text.startswith("keep apart"):

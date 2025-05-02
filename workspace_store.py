@@ -249,3 +249,64 @@ def update_auto_add_setting(workspace_id: str, enabled: bool):
     """
     update_workspace_info(workspace_id, {"auto_add_active_users": enabled})
     return (True, "")
+
+def add_always_include_user(workspace_id: str, user_id: str):
+    """Add a user to the 'always include' list for the next month's groups
+    
+    Args:
+        workspace_id: The workspace team ID
+        user_id: The user ID to always include
+        
+    Returns:
+        tuple: (success, message)
+    """
+    data = get_workspace_info()
+    if workspace_id in data:
+        # Initialize always_include_users if it doesn't exist
+        if "always_include_users" not in data[workspace_id]:
+            data[workspace_id]["always_include_users"] = []
+            
+        # Add user to the list if not already there
+        if user_id not in data[workspace_id]["always_include_users"]:
+            data[workspace_id]["always_include_users"].append(user_id)
+            save_workspace_info(data)
+            logging.info(f"Added user {user_id} to always include list for workspace {workspace_id}")
+            return (True, f"User <@{user_id}> added to the always include list")
+        else:
+            return (False, f"User <@{user_id}> is already in the always include list")
+    return (False, "Workspace not found")
+
+def remove_always_include_user(workspace_id: str, user_id: str):
+    """Remove a user from the 'always include' list
+    
+    Args:
+        workspace_id: The workspace team ID
+        user_id: The user ID to remove
+        
+    Returns:
+        tuple: (success, message)
+    """
+    data = get_workspace_info()
+    if workspace_id in data and "always_include_users" in data[workspace_id]:
+        if user_id in data[workspace_id]["always_include_users"]:
+            data[workspace_id]["always_include_users"].remove(user_id)
+            save_workspace_info(data)
+            logging.info(f"Removed user {user_id} from always include list for workspace {workspace_id}")
+            return (True, f"User <@{user_id}> removed from the always include list")
+        else:
+            return (False, f"User <@{user_id}> is not in the always include list")
+    return (False, "Workspace not found or no always include list exists")
+
+def get_always_include_users(workspace_id: str):
+    """Get the list of users who should always be included in check-in groups
+    
+    Args:
+        workspace_id: The workspace team ID
+        
+    Returns:
+        list: List of user IDs who should always be included
+    """
+    data = get_workspace_info()
+    if workspace_id in data:
+        return data[workspace_id].get("always_include_users", [])
+    return []

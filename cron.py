@@ -6,7 +6,7 @@ from slack_sdk.oauth.installation_store import FileInstallationStore
 from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.errors import SlackApiError
 import tokens
-from workspace_store import get_workspace_info, update_announcement_timestamp, update_announcement_tag
+from workspace_store import get_workspace_info, update_announcement_timestamp, update_announcement_tag, get_always_include_users
 
 logging.basicConfig(
     level=logging.INFO,
@@ -542,6 +542,13 @@ def make_new_checkin_groups(client, workspace_info: dict):
                 logging.info(f"Auto-adding user {user_id} as weekly poster")
                 
         logging.info(f"Auto-added {len(auto_daily_posters & (daily_posters | weekly_posters))} daily posters and {len(auto_weekly_posters & (daily_posters | weekly_posters))} weekly posters")
+    
+    # Add users from the always include list to the weekly posters set
+    always_include_users = workspace_info.get("always_include_users", [])
+    for user_id in always_include_users:
+        if user_id not in daily_posters and user_id not in weekly_posters:
+            weekly_posters.add(user_id)
+            logging.info(f"Adding always-include user {user_id} as weekly poster")
     
     # admin should be in all groups, will be added separately
     admins = set(workspace_info['admins'])
