@@ -540,40 +540,104 @@ def make_new_checkin_groups(client, workspace_info: dict):
     incompatible_pairs = workspace_info.get("incompatible_pairs", [])
     group_memberships = [[]]
     added_members = set()
+    
+    # Track which users are already placed in which group (for incompatible pairs)
+    user_group_map = {}
+    
+    # First pass: handle incompatible pairs
     for pair in incompatible_pairs:
-        if pair[0] in all_participants and pair[1] in all_participants:
+        user1, user2 = pair[0], pair[1]
+        
+        # Skip if either user is not a participant
+        if user1 not in all_participants or user2 not in all_participants:
+            continue
+            
+        # Skip if both users are already assigned
+        if user1 in added_members and user2 in added_members:
+            if user1_group == user2_group:
+                logging.error(f"Incompatible users {user1} and {user2} are in the same group. This shouldn't happen.")
+                dm_admins(client, workspace_info, f"Incompatible users {user1} and {user2} are in the same group. This shouldn't happen.")
+            continue
+            
+        # Check if either user is already in a group
+        user1_group = user_group_map.get(user1)
+        user2_group = user_group_map.get(user2)
+        
+        # Case 1: Neither user is assigned yet
+        if user1_group is None and user2_group is None:
+            # If only one group exists, create a second one
             if len(group_memberships) == 1:
                 group_memberships.append([])
-            group_memberships[0].append(pair[0])
-            group_memberships[1].append(pair[1])
-            added_members.add(pair[0])
-            added_members.add(pair[1])
+                
+            # Put user1 in first group, user2 in second group
+            group_memberships[0].append(user1)
+            user_group_map[user1] = 0
+            added_members.add(user1)
+            
+            group_memberships[1].append(user2)
+            user_group_map[user2] = 1
+            added_members.add(user2)
+        
+        # Case 2 & 3: One user is already assigned, the other isn't
+        elif (user1_group is not None and user2_group is None) or (user1_group is None and user2_group is not None):
+            # Determine which user is already assigned and which needs placement
+            assigned_user, assigned_group, unassigned_user = (
+                (user1, user1_group, user2) if user1_group is not None 
+                else (user2, user2_group, user1)
+            )
+            
+            # Find a group other than the assigned user's group
+            target_group = None
+            for i in range(len(group_memberships)):
+                if i != assigned_group:
+                    target_group = i
+                    break
+                    
+            # If no alternative group, create one
+            if target_group is None:
+                group_memberships.append([])
+                target_group = len(group_memberships) - 1
+                
+            # Add unassigned user to the target group
+            group_memberships[target_group].append(unassigned_user)
+            user_group_map[unassigned_user] = target_group
+            added_members.add(unassigned_user)
+        
     # Aiming for at least 12 people in each group including one admin 
     if len(all_participants) // 11 > len(group_memberships):
         for i in range(len(all_participants) // 11-len(group_memberships)):
             group_memberships.append([])
-    current_group = len(added_members) % len(group_memberships)
-    # users are added round-robin based on the order in which they reacted to the announcement
-    for user in daily_posters:
-        if user not in added_members:
-            group_memberships[current_group].append(user)
-            added_members.add(user)
-            current_group = (current_group + 1) % len(group_memberships)
-        else:
-            continue
-    for user in weekly_posters:
-        if user not in added_members:
-            group_memberships[current_group].append(user)
-            added_members.add(user)
-            current_group = (current_group + 1) % len(group_memberships)
-        else:
-            continue
-    # admins are also added round-robin with the requirement that there be one admin in each group
+    
+    # Second pass: assign remaining users to groups, starting with smallest groups first
+    # For daily posters
+    remaining_daily_posters = [user for user in daily_posters if user not in added_members]
+    for user in remaining_daily_posters:
+        # Find the group with the fewest members
+        group_sizes = [len(group) for group in group_memberships]
+        smallest_group_idx = group_sizes.index(min(group_sizes))
+        
+        group_memberships[smallest_group_idx].append(user)
+        user_group_map[user] = smallest_group_idx
+        added_members.add(user)
+    
+    # For weekly posters
+    remaining_weekly_posters = [user for user in weekly_posters if user not in added_members]
+    for user in remaining_weekly_posters:
+        # Find the group with the fewest members
+        group_sizes = [len(group) for group in group_memberships]
+        smallest_group_idx = group_sizes.index(min(group_sizes))
+        
+        group_memberships[smallest_group_idx].append(user)
+        user_group_map[user] = smallest_group_idx
+        added_members.add(user)
+    
+    # admins are also added, ensuring one admin in each group
     current_admin = 0
     admins = list(admins)
     for group in group_memberships:
         group.append(admins[current_admin])
         current_admin = (current_admin + 1) % len(admins)
+    
     logging.info(f"Group memberships: {group_memberships}")
 
     # create checkin channels
@@ -582,16 +646,66 @@ def make_new_checkin_groups(client, workspace_info: dict):
         logging.info("No channel format set for this workspace, skipping channel creation")
         dm_admins(client, workspace_info, "No channel format set for this workspace, skipping channel creation")
         return
+        
+    # Calculate the next month (for the new channel)
+    now = get_pt_time()
+    next_month = (now.replace(day=1) + timedelta(days=32)).replace(day=1)
+    next_month_name = next_month.strftime('%B')
+    next_month_number = next_month.strftime('%m')
+    next_month_year = next_month.strftime('%Y')
+    
+    # Check if next month's channels already exist
+    try:
+        # Generate expected channel names for next month
+        expected_channel_names = []
+        base_channel_name = channel_format.replace("[month]", next_month_number).replace("[year]", next_month_year)
+        
+        # If we have multiple groups, generate names for each group
+        if len(group_memberships) > 1:
+            for i in range(len(group_memberships)):
+                if "[number]" in base_channel_name:
+                    channel_name = base_channel_name.replace("[number]", str(i+1))
+                else:
+                    channel_name = base_channel_name + f"-{i+1}"
+                expected_channel_names.append(channel_name)
+        else:
+            # Single group case
+            if "[number]" in base_channel_name:
+                channel_name = base_channel_name.replace("-[number]", "")
+            else:
+                channel_name = base_channel_name
+            expected_channel_names.append(channel_name)
+            
+        # List all private channels
+        channels_list = client.conversations_list(types="private_channel", exclude_archived=True)
+        existing_channels = []
+        
+        # Check if any expected channels already exist
+        for expected_name in expected_channel_names:
+            for existing_channel in channels_list["channels"]:
+                if existing_channel["name"] == expected_name:
+                    existing_channels.append(expected_name)
+                    break
+        
+        # If any expected channels already exist, stop the process
+        if existing_channels:
+            error_message = f"Next month's channels already exist: {', '.join(existing_channels)}. Skipping channel creation."
+            logging.error(error_message)
+            dm_admins(client, workspace_info, error_message)
+            return
+            
+    except SlackApiError as e:
+        error_message = f"Error checking for existing channels: {e}"
+        logging.error(error_message)
+        if hasattr(e, 'response') and e.response is not None:
+            logging.error(f"API response: {e.response}")
+        logging.exception(e)
+        dm_admins(client, workspace_info, error_message)
+        return
+    
     try:
         for i in range(len(group_memberships)):
             channel_name = channel_format
-            
-            # Calculate the next month (for the new channel)
-            now = get_pt_time()
-            next_month = (now.replace(day=1) + timedelta(days=32)).replace(day=1)
-            next_month_name = next_month.strftime('%B')
-            next_month_number = next_month.strftime('%m')
-            next_month_year = next_month.strftime('%Y')
             
             # Use next month's info for channel name
             # Based on validate_channel_format in workspace_store.py, the only supported tokens are:
@@ -655,6 +769,7 @@ def make_new_checkin_groups(client, workspace_info: dict):
                             channel=new_channel_id, 
                             users=[user_id]
                         )
+                        logging.info(f"Added user {user_id} to channel {channel_name}")
                     except SlackApiError as user_error:
                         # If user is already in the channel, this is fine
                         if "already_in_channel" in str(user_error):
