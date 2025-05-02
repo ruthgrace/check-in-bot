@@ -1,6 +1,7 @@
 tokens.py
 .venv
 __pycache__/
+*.pyc
 data
 data/installations
 data/states
