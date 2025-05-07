@@ -153,10 +153,10 @@ def get_users_without_posts(client, channel_id: str):
         (users_no_posts, users_only_intro)
     """
     try:
-        # Get channel members
-        members = client.groups_members(channel=channel_id)["members"]
+        # Get channel members using conversations_members instead of groups_members
+        members = client.conversations_members(channel=channel_id)["members"]
         # Get messages from the last month
-        messages = client.groups_history(channel=channel_id, limit=999)["messages"]
+        messages = client.conversations_history(channel=channel_id, limit=999)["messages"]
         # Track who has posted what
         posted_users = set()  # Users who posted in main channel
         thread_only_users = set()  # Users who only posted in threads
@@ -168,9 +168,9 @@ def get_users_without_posts(client, channel_id: str):
                 break
         if welcome_msg:
             # Get all replies in the intro thread
-            intro_thread = client.groups_replies(
+            intro_thread = client.conversations_replies(
                 channel=channel_id,
-                thread_ts=welcome_msg["ts"]
+                ts=welcome_msg["ts"]
             )
             # Add users who posted in the intro thread
             for reply in intro_thread["messages"][1:]:  # Skip the welcome message
@@ -205,7 +205,16 @@ def get_users_without_posts(client, channel_id: str):
 def send_reminder(client, user_id: str, channel_id: str, is_intro_only: bool):
     """Send a reminder DM to a user"""
     try:
-        channel_info = client.groups_info(channel=channel_id)
+        # Get bot's user ID to exclude it from reminders
+        auth_test = client.auth_test()
+        bot_user_id = auth_test.get('user_id')
+        
+        # Skip if the user is the bot itself
+        if user_id == bot_user_id:
+            logging.info(f"Skipping reminder for bot user {user_id}")
+            return
+            
+        channel_info = client.conversations_info(channel=channel_id)
         channel_name = f"<#{channel_id}>"
         
         # Get user's info
@@ -235,29 +244,37 @@ def send_reminder(client, user_id: str, channel_id: str, is_intro_only: bool):
 def kick_inactive_users(client, channel_id: str, no_posts: list):
     """Kick users who haven't posted from the channel"""
     try:
-        channel_info = client.groups_info(channel=channel_id)
-        channel_name = channel_info["group"]["name"]
+        # Get bot's user ID to exclude it from kicks
+        auth_test = client.auth_test()
+        bot_user_id = auth_test.get('user_id')
+        
+        channel_info = client.conversations_info(channel=channel_id)
+        channel_name = channel_info["channel"]["name"]
         
         for user_id in no_posts:
+            # Skip if the user is the bot itself
+            if user_id == bot_user_id:
+                logging.info(f"Skipping kick for bot user {user_id}")
+                continue
+                
             try:
                 # Get user's info for the message
                 user_info = client.users_info(user=user_id)
                 first_name = user_info["user"]["profile"].get("first_name", "there")
 
-                if first_name != "check-in-bot":
-                    # Kick the user
-                    client.groups_kick(
-                        channel=channel_id,
-                        user=user_id
-                    )
-                    
-                    # Send a DM to the user
-                    client.chat_postMessage(
-                        channel=user_id,
-                        text=f"Hi {first_name}, I've removed you from {channel_name} since you haven't posted a check-in this month. You're always welcome to join again in a future month! 🙂"
-                    )   
-                    dm_admins(client, workspace_info, f"Kicked user <@{user_id}> from channel <#{channel_id}>")
-                    logging.info(f"Kicked user {user_id} ({first_name}) from channel {channel_id}")
+                # Kick the user
+                client.conversations_kick(
+                    channel=channel_id,
+                    user=user_id
+                )
+                
+                # Send a DM to the user
+                client.chat_postMessage(
+                    channel=user_id,
+                    text=f"Hi {first_name}, I've removed you from {channel_name} since you haven't posted a check-in this month. You're always welcome to join again in a future month! 🙂"
+                )   
+                dm_admins(client, workspace_info, f"Kicked user <@{user_id}> from channel <#{channel_id}>")
+                logging.info(f"Kicked user {user_id} ({first_name}) from channel {channel_id}")
                 
             except SlackApiError as e:
                 error_message = f"Error kicking user {user_id} ({first_name}) from channel {channel_id}: {e}"
