@@ -980,19 +980,39 @@ if __name__ == "__main__":
             elif current_day == 7 or current_day == 11:
                 # Get current month's channels
                 channels = get_current_month_channels(client, workspace_info)
+                
+                # Track total actions for summary
+                total_reminders = 0
+                total_intro_reminders = 0
+                total_kicks = 0
+                
                 for channel in channels:
                     no_posts, only_intro = get_users_without_posts(client, channel["id"])
                     # On the 7th, send reminders
                     if current_day == 7:
                         for user in no_posts:
                             send_reminder(client, user, channel["id"], False)
+                            total_reminders += 1
                             
                         for user in only_intro:
                             send_reminder(client, user, channel["id"], True)
+                            total_intro_reminders += 1
+                            
+                        # Send summary of reminders
+                        summary = f"Reminder Summary for {channel['name']}:\n"
+                        summary += f"- {total_reminders} users received no-posts reminders\n"
+                        summary += f"- {total_intro_reminders} users received intro-only reminders"
+                        dm_admins(client, workspace_info, summary)
                 
                     # On the 11th, kick inactive users
                     elif current_day == 11:
                         kick_inactive_users(client, channel["id"], no_posts)
+                        total_kicks += len(no_posts)
+                        
+                        # Send summary of kicks
+                        summary = f"Kick Summary for {channel['name']}:\n"
+                        summary += f"- {total_kicks} users were kicked for inactivity"
+                        dm_admins(client, workspace_info, summary)
             # Create new check-in groups on the last day of the month instead of the 1st of next month
             elif is_last_day_of_month():
                 make_new_checkin_groups(client, workspace_info)
