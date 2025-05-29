@@ -311,12 +311,12 @@ def post_monthly_signup(client, workspace_info: dict):
         client.reactions_add(
             channel=announcement_channel,
             timestamp=result["ts"],
-            name="sun_with_face"
+            name="star2"
         )
         client.reactions_add(
             channel=announcement_channel,
             timestamp=result["ts"],
-            name="star2"
+            name="sun_with_face"
         )
         
         # Update the announcement timestamp in workspace info
