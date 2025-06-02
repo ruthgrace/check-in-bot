@@ -129,6 +129,7 @@ journalctl -u check-in-bot-cron.service
 The cron service will run daily at 15:00 UTC (8am Pacific) and perform these tasks:
 - On the 25th: Announce signups for next month's check-in groups
 - On the last day: Create channels and add participants
+- On the 2nd: Add late signups to existing groups
 - On the 7th: Send reminders to inactive members
 - On the 11th: Remove inactive members
 
@@ -138,5 +139,4 @@ this doesn't work for enterprise installations (see code in cron.py)
 
 ## to do
 
-* Figure out why App Home isn't working on Commons slack - ask someone who works at the commosn about reinstalling via https://check-in-bot.ruthgracewong.com/slack/install
 * archive all channels with a specific year/string

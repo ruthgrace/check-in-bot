@@ -105,9 +105,16 @@ def build_announcement_message(workspace_info: dict):
     
     return message
 
-def build_intro_message(users: list, month: str):
+def build_intro_message(users: list, month: str, admins: list = None):
     """Build the intro message for the checkin channels"""
     users_text = " ".join([f"<@{user}>" for user in users])
+    
+    # Build admin mentions text
+    admin_text = ""
+    if admins:
+        admin_mentions = " ".join([f"<@{admin}>" for admin in admins])
+        admin_text = f"* This group is administered by {admin_mentions}. Feel free to message them with any questions or concerns."
+    
     message = (
         f"Welcome to {month}! {MONTH_EMOJIS[month]} {users_text}\n\n"
         f"Let's do introductions here in thread. You can be as brief or long as you like. Share any of: who you might mention in your check ins, what's been on your mind lately, or what you'd like to build in the short or long term. (pasting your intro from a previous month is fine too!)\n\n"
@@ -116,6 +123,7 @@ def build_intro_message(users: list, month: str):
         f"* We share our intentions for the day and how our previous day went, often along with a little journalling. The format is casual and flexible, and i'm happy for you to use this group in a way that feels most useful to you. Some people post daily and others weekly.\n"
         f"* If you don't end up posting anything by the 10th of the month I will bump you out of this month's group, just to make sure nobody feels weird about people reading without posting. I'll send out reminders to people who haven't posted around the 7th.\n"
         f"* If you want to get the text of all your checkins from a month, message me just the name of the channel, like `#2025-february-1` (but in plain text; the channel should turn into a blue link)\n"
+        f"{admin_text}\n"
         f"* If you read someone else's message, leave an emoji react! :slightly_smiling_face: I will leave some initial emoji reacts on each message to foster more human to human interaction."
     )
     return message
@@ -822,7 +830,7 @@ def make_new_checkin_groups(client, workspace_info: dict):
                             logging.error(f"Error inviting user {user_id} to channel {channel_name}: {user_error}")
                 
                 # Post intro thread
-                client.chat_postMessage(channel=new_channel_id, text=build_intro_message(group_memberships[i], next_month_name))
+                client.chat_postMessage(channel=new_channel_id, text=build_intro_message(group_memberships[i], next_month_name, workspace_info.get('admins', [])))
                 logging.info(f"Successfully set up channel {channel_name} and added {len(group_memberships[i])} members")
                 
             except SlackApiError as e:
@@ -945,6 +953,237 @@ def run_api_diagnostics(client, workspace_id):
             
     logging.info("-------- API DIAGNOSTICS COMPLETE --------")
 
+def add_late_signups_to_groups(client, workspace_info: dict):
+    """Add users who reacted late to existing check-in groups"""
+    
+    # Get workspace identifier for logging
+    workspace_id = workspace_info.get("team_id", "unknown")
+    workspace_name = None
+    try:
+        team_info = client.team_info()
+        workspace_name = team_info["team"]["name"]
+        workspace_identifier = f"{workspace_name} ({workspace_id})"
+    except Exception:
+        workspace_identifier = f"workspace {workspace_id}"
+    
+    # Get the announcement channel
+    announcement_channel = workspace_info.get("announcement_channel")
+    if not announcement_channel:
+        logging.info(f"[{workspace_identifier}] No announcement channel set for this workspace, skipping late signup processing")
+        return
+
+    # Get the last announcement timestamp
+    last_announcement_timestamp = workspace_info.get("announcement_timestamp")
+    if not last_announcement_timestamp:
+        logging.info(f"[{workspace_identifier}] No last announcement set for this workspace, skipping late signup processing")
+        return
+
+    channel_id = last_announcement_timestamp["channel"]
+    timestamp = last_announcement_timestamp["ts"]
+    
+    try:
+        # Get current reactions on the announcement message
+        result = client.reactions_get(channel=channel_id, timestamp=timestamp)
+        reactions = result.data["message"].get("reactions", [])
+    except SlackApiError as e:
+        error_message = f"[{workspace_identifier}] Error getting reactions for late signup processing: {e}"
+        logging.error(error_message)
+        dm_admins(client, workspace_info, error_message)
+        return
+
+    if len(reactions) == 0:
+        logging.info(f"[{workspace_identifier}] No reactions found for late signup processing")
+        return
+
+    # Get users who reacted
+    daily_reactors = set()
+    weekly_reactors = set()
+    
+    # Get bot's user ID to exclude it
+    try:
+        auth_test = client.auth_test()
+        bot_user_id = auth_test.get('user_id')
+    except SlackApiError as e:
+        logging.error(f"[{workspace_identifier}] Failed to get bot user ID: {e}")
+        bot_user_id = None
+
+    for react in reactions:
+        if react["name"] == "sun_with_face":
+            daily_reactors.update(react["users"])
+        elif react["name"] == "star2":
+            weekly_reactors.update(react["users"])
+    
+    # Remove bot from reactors
+    if bot_user_id:
+        daily_reactors.discard(bot_user_id)
+        weekly_reactors.discard(bot_user_id)
+
+    # Remove admins (they'll be in groups already)
+    admins = set(workspace_info.get('admins', []))
+    daily_reactors -= admins
+    weekly_reactors -= admins
+    
+    # People who reacted for both should be considered weekly
+    daily_reactors -= weekly_reactors
+    
+    all_new_reactors = daily_reactors | weekly_reactors
+    if not all_new_reactors:
+        logging.info(f"[{workspace_identifier}] No new reactors found for late signup processing")
+        return
+
+    # Get current month's channels and their members
+    current_channels = get_current_month_channels(client, workspace_info)
+    if not current_channels:
+        logging.info(f"[{workspace_identifier}] No current month channels found for late signup processing")
+        return
+
+    # Get existing members from all current channels and find welcome messages
+    existing_members = set()
+    channel_members = {}  # Map channel_id -> list of members
+    channel_welcome_threads = {}  # Map channel_id -> welcome message timestamp
+    
+    for channel in current_channels:
+        try:
+            members_result = client.conversations_members(channel=channel["id"])
+            members = set(members_result["members"])
+            channel_members[channel["id"]] = members
+            existing_members.update(members)
+            
+            # Look for the welcome message in this channel
+            try:
+                history = client.conversations_history(channel=channel["id"], limit=50)
+                for message in history["messages"]:
+                    # Check if it's a welcome message sent by the bot
+                    if (message.get("text", "").startswith("Welcome to") and 
+                        message.get("user") == bot_user_id):
+                        channel_welcome_threads[channel["id"]] = message["ts"]
+                        logging.info(f"[{workspace_identifier}] Found bot's welcome message in {channel['name']} at timestamp {message['ts']}")
+                        break
+            except SlackApiError as e:
+                logging.error(f"[{workspace_identifier}] Error getting history for welcome message in channel {channel['name']}: {e}")
+                dm_admins(client, workspace_info, f"While processing late signups: Error getting history for welcome message in channel {channel['name']}: {e}")
+                
+        except SlackApiError as e:
+            logging.error(f"[{workspace_identifier}] Error getting members for channel {channel['name']}: {e}")
+            continue
+
+    # Find users who reacted but aren't in any groups yet
+    new_users_to_add = []
+    for user in all_new_reactors:
+        if user not in existing_members:
+            new_users_to_add.append(user)
+
+    if not new_users_to_add:
+        logging.info(f"[{workspace_identifier}] All reactors are already in existing groups")
+        dm_admins(client, workspace_info, f"Late signup summary: No new users to add to existing groups")
+        return
+
+    logging.info(f"[{workspace_identifier}] Found {len(new_users_to_add)} new users to add to existing groups")
+
+    # Check for incompatible pairs among new users and existing members
+    incompatible_pairs = workspace_info.get("incompatible_pairs", [])
+    
+    # Track which users are added to which channels for batched welcome messages
+    channel_new_users = {}  # Map channel_id -> list of new users added
+    
+    # Distribute new users across existing channels, avoiding incompatible pairs
+    for user in new_users_to_add:
+        # Find channels where this user can be added (no incompatible pairs)
+        compatible_channels = []
+        
+        for channel_id, members in channel_members.items():
+            is_compatible = True
+            
+            # Check if user has incompatible pairs with existing members
+            for pair in incompatible_pairs:
+                if user in pair:
+                    other_user = pair[1] if pair[0] == user else pair[0]
+                    if other_user in members:
+                        is_compatible = False
+                        break
+            
+            if is_compatible:
+                compatible_channels.append((channel_id, len(members)))
+        
+        if not compatible_channels:
+            logging.warning(f"[{workspace_identifier}] No compatible channels found for user {user} due to incompatible pair constraints")
+            dm_admins(client, workspace_info, f"Could not add user <@{user}> to any group due to incompatible pair constraints")
+            continue
+        
+        # Add to the channel with the fewest members
+        compatible_channels.sort(key=lambda x: x[1])
+        target_channel_id = compatible_channels[0][0]
+        
+        try:
+            # Add user to the channel
+            client.conversations_invite(
+                channel=target_channel_id,
+                users=[user]
+            )
+            
+            # Update our tracking
+            channel_members[target_channel_id].add(user)
+            
+            # Track this user for batched welcome message
+            if target_channel_id not in channel_new_users:
+                channel_new_users[target_channel_id] = []
+            channel_new_users[target_channel_id].append(user)
+            
+            # Get channel info for logging
+            channel_info = client.conversations_info(channel=target_channel_id)
+            channel_name = channel_info["channel"]["name"]
+            
+            logging.info(f"[{workspace_identifier}] Added user <@{user}> to channel {channel_name}")
+            
+        except SlackApiError as e:
+            if "already_in_channel" in str(e):
+                logging.info(f"[{workspace_identifier}] User <@{user}> is already in the channel")
+            else:
+                error_msg = f"[{workspace_identifier}] Error adding user <@{user}> to channel: {e}"
+                logging.error(error_msg)
+                dm_admins(client, workspace_info, error_msg)
+
+    # Send batched welcome messages to each channel
+    for channel_id, new_users in channel_new_users.items():
+        if not new_users:
+            continue
+            
+        try:
+            # Build the welcome message
+            users_mentions = " ".join([f"<@{user}>" for user in new_users])
+            welcome_text = f"Welcome {users_mentions}! You've been added to this month's check-in group. "
+            
+            # Add link to intro thread if we found the welcome message
+            if channel_id in channel_welcome_threads:
+                welcome_text += f"Feel free to introduce yourself in this thread: https://slack.com/archives/{channel_id}/p{channel_welcome_threads[channel_id].replace('.', '')} "
+            else:
+                welcome_text += "Feel free to introduce yourself in the intro thread at the top of the channel "
+                
+            welcome_text += "and start sharing your daily/weekly check-ins! :wave:"
+            
+            # Send the batched welcome message
+            client.chat_postMessage(
+                channel=channel_id,
+                text=welcome_text
+            )
+            
+            # Get channel info for logging
+            channel_info = client.conversations_info(channel=channel_id)
+            channel_name = channel_info["channel"]["name"]
+            logging.info(f"[{workspace_identifier}] Sent batched welcome message to {len(new_users)} users in channel {channel_name}")
+            
+        except SlackApiError as e:
+            error_msg = f"[{workspace_identifier}] Error sending welcome message to channel {channel_id}: {e}"
+            logging.error(error_msg)
+            dm_admins(client, workspace_info, error_msg)
+
+    # Send summary to admins
+    if new_users_to_add:
+        summary_msg = f"Late Signup Summary: Added {len(new_users_to_add)} users who reacted after group creation:\n"
+        for user in new_users_to_add:
+            summary_msg += f"- <@{user}>\n"
+        dm_admins(client, workspace_info, summary_msg)
+
 if __name__ == "__main__":
     logging.info("Cron job started")
     current_day = get_pt_time().day
@@ -977,6 +1216,9 @@ if __name__ == "__main__":
             # On the 25th, post the monthly signup message
             if current_day == 25:
                 post_monthly_signup(client, workspace_info)
+            # On the 2nd, add late signups to existing groups
+            elif current_day == 2:
+                add_late_signups_to_groups(client, workspace_info)
             elif current_day == 7 or current_day == 11:
                 # Get current month's channels
                 channels = get_current_month_channels(client, workspace_info)
