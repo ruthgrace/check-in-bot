@@ -115,15 +115,15 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
         }
     ])
 
-
+    incompatible_text = "\n\n*Users kept apart:*"
     if workspace_info["incompatible_pairs"]:
         pair_texts = []
         for user1, user2 in workspace_info["incompatible_pairs"]:
             pair_texts.append(f"<@{user1}> and <@{user2}>")
-        incompatible_text = "\n\n*Users kept apart:*\n" + "\n".join(pair_texts)
+        incompatible_text += "\n\n" + "\n".join(pair_texts)
     else:
-        incompatible_text = "\n\n*Users kept apart:*\nNo users are currently being kept apart."
-    incompatible_text += "\n\n(Administrators can add users to be kept apart with `keep apart @user1 @user2`)"
+        incompatible_text += "\n\nNo users are currently being kept apart."
+    incompatible_text += "\n\nYou can add users to be kept apart with `keep apart @user1 @user2`"
     blocks.append({
         "type": "section",
         "text": {
@@ -134,12 +134,13 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
     
     # Add always include users section
     always_include_users = workspace_info.get("always_include_users", [])
+    always_include_text = "\n\n*Users always included in check-in groups:*"
     if always_include_users:
         user_mentions = [f"<@{user_id}>" for user_id in always_include_users]
-        always_include_text = "\n\n*Users always included in check-in groups:*\n" + ", ".join(user_mentions) + "\n\nThese users will automatically be included in the next month's check-in groups as weekly posters."
+        always_include_text += "\n\n" + ", ".join(user_mentions) + "\n\nThese users will automatically be included in the next month's check-in groups as weekly posters."
     else:
-        always_include_text = "\n\n*Users always included in check-in groups:*\nNo users are currently set to be always included."
-    always_include_text += "\n\n(Administrators can add users with `always include @user`)"
+        always_include_text += "\n\nNo users are currently set to be always included."
+    always_include_text += "\n\nYou can add users with `always include @user`"
     blocks.append({
         "type": "section",
         "text": {
@@ -152,7 +153,7 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
     if not channel_format:
         update_channel_format(team_id, "check-ins-[year]-[month]")
         channel_format = workspace_info.get("channel_format")
-    channel_format_text = f"\n\n*Channel naming format:*\n{channel_format}\n(Administrators can change this with `set channel format [new format]`)"
+    channel_format_text = f"\n\n*Channel naming format:*\n{channel_format}\n\nYou can change this with `set channel format [new format]`"
     blocks.append({
         "type": "section",
         "text": {
@@ -164,9 +165,9 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
     # Add announcement channel info
     announcement_channel = workspace_info.get("announcement_channel")
     if announcement_channel:
-        announcement_text = f"\n\n*Announcement channel:*\n<#{announcement_channel}>\n(Administrators can change this with `set announcement channel #channel`)"
+        announcement_text = f"\n\n*Announcement channel:*\n<#{announcement_channel}>\n\nYou can change this with `set announcement channel #channel`"
     else:
-        announcement_text = "\n\n*Announcement channel:*\nNo announcement channel set. Administrators can set one with `set announcement channel #channel`"
+        announcement_text = "\n\n*Announcement channel:*\nNo announcement channel set. You can set one with `set announcement channel #channel`"
     blocks.append({
         "type": "section",
         "text": {
@@ -178,9 +179,10 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
     # Add custom announcement text section
     custom_announcement = workspace_info.get("custom_announcement_text", "")
     if custom_announcement:
-        custom_announcement_text = f"*Custom Announcement Text:*\nUse `set announcement text [Your text here]` to set or `set announcement tag [here|channel]` to set the tag type.\n\nThis is what your monthly signup message will look like:\n\n{build_announcement_message(workspace_info)}"
+        custom_announcement_text = f"*Custom Announcement Text:*\nThis is what your monthly signup message will look like:\n\n{build_announcement_message(workspace_info)}"
     else:
-        custom_announcement_text = f"*Custom Announcement Text:*\nNo custom announcement text set.\nUse `set announcement text [Your text here]` to set or `set announcement tag [here|channel]` to set the tag type.\n\nThis is what your monthly signup message will look like. Your custom text will apear after the 2nd sentence:\n\n{build_announcement_message(workspace_info)}"
+        custom_announcement_text = f"*Custom Announcement Text:*\nNo custom announcement text set.\n\nThis is what your monthly signup message will look like:\n\n{build_announcement_message(workspace_info)}"
+    custom_announcement_text += "\n\nUse `set announcement text [Your text here]` to set the text that appears after the second sentence, or `set announcement tag [here|channel]` to set the tag type."
     blocks.append({
         "type": "section",
         "text": {
@@ -197,9 +199,10 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
         # Format the permalink URL
         workspace_domain = workspace_info.get("domain", "slack")
         permalink = f"https://{workspace_domain}.slack.com/archives/{channel_id}/p{timestamp.replace('.', '')}"
-        last_announcement_text = f"*Last Announcement:*\n<{permalink}|View last announcement message>\n(Administrators can update this with `set announcement link [message link]`)"
+        last_announcement_text = f"*Last Announcement:*\n<{permalink}|View last announcement message>"
     else:
-        last_announcement_text = "*Last Announcement:*\nNo last announcement message set.\nAdministrators can set one with `set announcement link [message link]`"
+        last_announcement_text = "*Last Announcement:*\nNo last announcement message set."
+    last_announcement_text += "\n\nYou can set or update the last announcement message with `set announcement link [message link]`"
     blocks.append({
         "type": "section",
         "text": {
