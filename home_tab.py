@@ -123,6 +123,7 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
         incompatible_text = "\n\n*Users kept apart:*\n" + "\n".join(pair_texts)
     else:
         incompatible_text = "\n\n*Users kept apart:*\nNo users are currently being kept apart."
+    incompatible_text += "\n\n(Administrators can add users to be kept apart with `keep apart @user1 @user2`)"
     blocks.append({
         "type": "section",
         "text": {
@@ -137,7 +138,8 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
         user_mentions = [f"<@{user_id}>" for user_id in always_include_users]
         always_include_text = "\n\n*Users always included in check-in groups:*\n" + ", ".join(user_mentions) + "\n\nThese users will automatically be included in the next month's check-in groups as weekly posters."
     else:
-        always_include_text = "\n\n*Users always included in check-in groups:*\nNo users are currently set to be always included.\nAdministrators can add users with `always include @user1 @user2...`"
+        always_include_text = "\n\n*Users always included in check-in groups:*\nNo users are currently set to be always included."
+    always_include_text += "\n\n(Administrators can add users with `always include @user`)"
     blocks.append({
         "type": "section",
         "text": {
