@@ -1217,7 +1217,7 @@ if __name__ == "__main__":
             if current_day == 25:
                 post_monthly_signup(client, workspace_info)
             # On the 2nd, add late signups to existing groups
-            elif current_day == 2:
+            elif current_day == 1 or current_day == 2:
                 add_late_signups_to_groups(client, workspace_info)
             elif current_day == 7 or current_day == 11:
                 # Get current month's channels
