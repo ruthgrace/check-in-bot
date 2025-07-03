@@ -368,9 +368,8 @@ def get_active_users_from_previous_month(client, workspace_info: dict):
         prev_month_name = datetime(prev_month_year, prev_month, 1).strftime("%B").lower()
         prev_month_number = datetime(prev_month_year, prev_month, 1).strftime("%m")  # 01-12 format
         
-        # Calculate the last week of the previous month
-        first_day_of_current_month = (datetime(now.year, now.month, 1))
-        last_week_start_date = first_day_of_current_month - timedelta(days=7)
+        # Calculate the last week (7 days before today)
+        last_week_start_date = now - timedelta(days=7)
         
         logging.info(f"Looking for users active between {last_week_start_date.strftime('%Y-%m-%d')} and end of {prev_month_name}")
         
