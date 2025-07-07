@@ -34,7 +34,6 @@ Run this file on mac (click on it): `/Applications/Python\ 3.*/Install\ Certific
 
 ## production set up
 
-0. my old server is Ubuntu 16 and I'm too lazy to upgrade it,but I also want to be able to use fstrings; instructions to install python3.7 on Ubuntu 16 here https://stackoverflow.com/questions/77005109/how-do-i-install-python3-7-on-ubuntu-16 . Make sure to run `./configure --enable-loadable-sqlite-extensions --enable-optimizations` before running make as per https://stackoverflow.com/questions/1210664/no-module-named-sqlite3
 1. clone this repo to /var/www/
 2. add tokens.py with contents (fill in tokens)
 
@@ -51,36 +50,42 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip3 install -r requirements.txt
-sudo chown -R www-data:www-data .venv
 ```
 
 3. make sure you have your domain. mine is check-in-bot.ruthgracewong.com (subdomain managed via digital ocean)
 4. symlink `nginx/check-in-bot` file to nginx config
 
+set up SELinux
 ```
-sudo ln -fs /var/www/check-in-bot/nginx/check-in-bot /etc/nginx/sites-available/check-in-bot
-sudo service nginx reload
+sudo chcon -t httpd_config_t /var/www/check-in-bot/nginx/check-in-bot.bootstrap
+sudo chcon -t httpd_config_t /var/www/check-in-bot/nginx/check-in-bot
+sudo chcon -t httpd_sys_content_t /var/www/check-in-bot
+```
+
+
+```
+sudo ln -fs /var/www/check-in-bot/nginx/check-in-bot.bootstrap /etc/nginx/conf.d/check-in-bot.conf
 ```
 
 5. run `sudo service nginx reload`
 6. make SSL certificates for HTTPS
 
 ```
-certbot certonly --force-renewal -a webroot -w /var/www/check-in-bot -d www.check-in-bot.ruthgracewong.com -w /var/www/check-in-bot -d check-in-bot.ruthgracewong.com
+sudo certbot certonly --force-renewal -a webroot -w /var/www/check-in-bot -d www.check-in-bot.ruthgracewong.com -w /var/www/check-in-bot -d check-in-bot.ruthgracewong.com
 ```
 
 7. make sure that auto renewal of SSL cert is set up e.g. https://onepagezen.com/letsencrypt-auto-renew-certbot-apache/
 8. now that the SSL certs are made, put up the production nginx config
 
 ```
-sudo ln -fs /var/www/check-in-bot/nginx/check-in-bot /etc/nginx/sites-available/check-in-bot
+sudo ln -fs /var/www/check-in-bot/nginx/check-in-bot /etc/nginx/conf.d/check-in-bot.conf
 sudo service nginx reload
 ```
 
-9. set up process manager by symlinking check-in-bot.service to `/etc/systemd/system/`
+9. set up process manager by COPYING check-in-bot.service to `/etc/systemd/system/`
 
 ```
-sudo ln -fs /var/www/check-in-bot/check-in-bot.service /etc/systemd/system/check-in-bot.service
+sudo cp /var/www/check-in-bot/check-in-bot.service /etc/systemd/system/check-in-bot.service
 ```
 
 10. start the service
@@ -108,20 +113,14 @@ sudo cp -f check-in-bot-cron.service /etc/systemd/system/check-in-bot-cron.servi
 sudo cp -f check-in-bot-cron.timer /etc/systemd/system/check-in-bot-cron.timer
 ```
 
-2. Set correct permissions:
-```bash
-sudo chmod 644 /etc/systemd/system/check-in-bot-cron.service
-sudo chmod 644 /etc/systemd/system/check-in-bot-cron.timer
-```
-
-4. Enable and start the timer:
+2. Enable and start the timer:
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable check-in-bot-cron.timer
 sudo systemctl start check-in-bot-cron.timer
 ```
 
-5. Verify the timer is running:
+3. Verify the timer is running:
 ```bash
 journalctl -u check-in-bot-cron.service
 ```
@@ -129,7 +128,7 @@ journalctl -u check-in-bot-cron.service
 The cron service will run daily at 15:00 UTC (8am Pacific) and perform these tasks:
 - On the 25th: Announce signups for next month's check-in groups
 - On the last day: Create channels and add participants
-- On the 2nd: Add late signups to existing groups
+- On the 1st and 2nd: Add late signups to existing groups
 - On the 7th: Send reminders to inactive members
 - On the 11th: Remove inactive members
 

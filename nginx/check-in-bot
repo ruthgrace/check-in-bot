@@ -17,25 +17,20 @@
 # PUT THIS IN /etc/nginx/sites-available and /etc/nginx/sites-enabled
 
 server {
-    if ($host = www.check-in-bot.ruthgracewong.com) {
+    listen 80;
+    listen [::]:80;
+    server_name check-in-bot.ruthgracewong.com www.check-in-bot.ruthgracewong.com;
+
+    # Allow Let's Encrypt challenges
+    location ~ /.well-known {
+        root /var/www/check-in-bot;
+        allow all;
+    }
+    
+    # Redirect everything else to HTTPS
+    location / {
         return 301 https://$host$request_uri;
-    } # managed by Certbot
-
-    if ($host = check-in-bot.ruthgracewong.com) {
-        return 301 https://$host$request_uri;
-    } # managed by Certbot
-
-
-	listen 80;
-        listen [::]:80;
-	server_name check-in-bot.ruthgracewong.com www.check-in-bot.ruthgracewong.com;
-
-        location ~ /.well-known {
-            root /var/www/check-in-bot;
-        }
-        location / {
-            return 301 https://$host$request_uri;
-        }
+    }
 }
 
 server {
