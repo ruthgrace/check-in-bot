@@ -30,6 +30,7 @@ def get_home_view(user_id: str, team_id: str, team_name: str, client, get_worksp
         admin_text = "\n\n*Administrators:*\n" + ", ".join(admin_usernames)
     else:
         admin_text = "\n\n*Administrators:*\nNo administrators found. You can become an administrator by messaging 'king me' to the check-in bot."
+    
     blocks = [
         {
             "type": "section",
@@ -50,22 +51,43 @@ def get_home_view(user_id: str, team_id: str, team_name: str, client, get_worksp
         },
         {
             "type": "divider"
-        },
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": admin_text + "\n\nAdministrators can ask check-in-bot to keep certain users from being in the same check-in-group."
-            }
         }
     ]
+    
+    # Check if user is NOT an admin but IS in the always include list
+    is_admin = workspace_info and workspace_info.get("admins") and user_id in workspace_info["admins"]
+    always_include_users = workspace_info.get("always_include_users", []) if workspace_info else []
+    is_always_included = user_id in always_include_users
+    
+    # Add always include status section for non-admin users
+    if not is_admin and is_always_included:
+        blocks.extend([
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "✨ *You're always included!* ✨\n\nYou've been added to the \"always include\" list by an administrator. This means you'll automatically be included in check-in groups each month, even if you don't react to the monthly signup message."
+                }
+            },
+            {
+                "type": "divider"
+            }
+        ])
+    
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": admin_text + "\n\nAdministrators can ask check-in-bot to keep certain users from being in the same check-in-group."
+        }
+    })
     
     view = {
         "type": "home",
         "blocks": blocks
     }
     # If user is an admin, show the admin home view
-    if workspace_info and workspace_info.get("admins") and user_id in workspace_info["admins"]:
+    if is_admin:
         return build_admin_home(workspace_info, blocks)
     return view
 
