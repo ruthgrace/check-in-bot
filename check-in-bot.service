@@ -1,14 +1,29 @@
 [Unit]
 Description=Python app for automatically adding emoji reacts to slack channels, runs on port 3000
-After=network.target
+After=network.target network-online.target
+Wants=network-online.target
 
 [Service]
+Type=simple
 User=nginx
 Group=nginx
 WorkingDirectory=/var/www/check-in-bot
 ExecStart=/var/www/check-in-bot/.venv/bin/python3 /var/www/check-in-bot/app.py
-Restart=on-failure
-RestartSec=42s
+Restart=always
+RestartSec=10s
+StartLimitInterval=60s
+StartLimitBurst=5
+
+# Resource limits
+LimitNOFILE=65536
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=slack-bot
+
+# Environment
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
