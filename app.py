@@ -195,12 +195,26 @@ def get_emojis(client, event, logger):
         ],
         model="gpt-4",
     )
+    # Validate response structure
+    if not chat_completion.choices or not chat_completion.choices[0].message.content:
+      logger.error("Empty or invalid response from OpenAI")
+      return None
+      
     reply = chat_completion.choices[0].message.content
     reply = reply.strip().strip(":")
     emojis = re.split(r':\s*:*', reply)
-    return emojis
+    
+    # Filter out empty strings and validate emoji names
+    valid_emojis = [emoji for emoji in emojis if emoji and len(emoji) > 0]
+    
+    if not valid_emojis:
+      logger.error(f"No valid emojis extracted from OpenAI response: {reply}")
+      return None
+      
+    return valid_emojis
   except Exception as e:
     logger.error(f"Error getting emojis from OpenAI: {repr(e)}")
+    return None
 
 def post_emojis(client, event, logger, emojis):
   emoji_limit = 5
