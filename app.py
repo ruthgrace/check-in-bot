@@ -151,7 +151,7 @@ def parse_messages(check_in_entries, message_data, user):
 
 def should_react(client, event, logger):
   # don't react to messages in announcement channel
-  ensure_workspace_exists(event["team"])
+  ensure_workspace_exists(event["team"], client)
   logger.info(f"DEBUG: get_workspace_info(event['team']): {get_workspace_info(event['team'])}")
   if "announcement_channel" in get_workspace_info(event['team']) and event["channel"] == get_workspace_info(event['team'])["announcement_channel"]:
     return False

@@ -9,7 +9,7 @@ from cron import build_announcement_message
 def get_home_view(user_id: str, team_id: str, team_name: str, client, get_workspace_info):
     """Create the home tab view"""    
     # Ensure workspace exists in storage
-    ensure_workspace_exists(team_id)
+    ensure_workspace_exists(team_id, client)
     
     # Get workspace info from the event context
     workspace_info = get_workspace_info(team_id)

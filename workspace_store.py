@@ -38,17 +38,18 @@ def get_workspace_info(team_id: str = None):
         logging.error(f"Error reading workspace info: {repr(e)}")
         return {} if team_id else {}
 
-def ensure_workspace_exists(team_id: str):
+def ensure_workspace_exists(team_id: str, client=None):
     """Ensure workspace exists in pickle, create if it doesn't"""
     data = get_workspace_info()
     
     if team_id not in data:
-        try:
-            team_info = client.team_info()
-            team_name = team_info["team"]["name"]
-        except Exception as e:
-            logging.error(f"Error getting team info when ensuring workspace exists, setting team name to team id for now: {repr(e)}")
-            team_name = team_id
+        team_name = team_id  # Default to team_id if we can't get the real name
+        if client:
+            try:
+                team_info = client.team_info()
+                team_name = team_info["team"]["name"]
+            except Exception as e:
+                logging.error(f"Error getting team info when ensuring workspace exists, setting team name to team id for now: {repr(e)}")
         logging.info(f"Saving team info for team id {team_id} and name {team_name}")
         data[team_id] = {
             "team_id": team_id,
