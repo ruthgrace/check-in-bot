@@ -342,8 +342,12 @@ def post_monthly_signup(client, workspace_info: dict):
         logging.exception(e)  # Log the full stack trace
         dm_admins(client, workspace_info, error_message)
 
-def get_active_users_from_previous_month(client, workspace_info: dict):
-    """Get users who were active in the LAST WEEK of the previous month
+def get_active_users_from_current_month(client, workspace_info: dict):
+    """Get users who were active in the LAST WEEK of the current month
+    
+    This function is called on the last day of the month to find users
+    who should be auto-added to next month's groups based on their
+    activity in the current month's last week.
     
     Args:
         client: Slack client
@@ -356,32 +360,29 @@ def get_active_users_from_previous_month(client, workspace_info: dict):
     user_message_counts = {}
     
     try:
-        # Calculate previous month
+        # When running on the last day of the month, we want to look at the CURRENT month's activity
+        # to determine who should be auto-added to next month's groups
         now = get_pt_time()
-        if now.month == 1:  # January
-            prev_month_year = now.year - 1
-            prev_month = 12  # December
-        else:
-            prev_month_year = now.year
-            prev_month = now.month - 1
+        current_month_year = now.year
+        current_month = now.month
             
-        prev_month_name = datetime(prev_month_year, prev_month, 1).strftime("%B").lower()
-        prev_month_number = datetime(prev_month_year, prev_month, 1).strftime("%m")  # 01-12 format
+        current_month_name = datetime(current_month_year, current_month, 1).strftime("%B").lower()
+        current_month_number = datetime(current_month_year, current_month, 1).strftime("%m")  # 01-12 format
         
-        # Calculate the last week (7 days before today)
-        last_week_start_date = now - timedelta(days=7)
+        # Calculate the last week (7 days before today, inclusive)
+        last_week_start_date = now - timedelta(days=6)
         
-        logging.info(f"Looking for users active between {last_week_start_date.strftime('%Y-%m-%d')} and end of {prev_month_name}")
+        logging.info(f"Looking for users active between {last_week_start_date.strftime('%Y-%m-%d')} and {now.strftime('%Y-%m-%d')} (last week of {current_month_name})")
         
         # Get the channel format from workspace settings
         channel_format = workspace_info.get("channel_format", "check-ins-[year]-[month]")
         
-        # Create channel name pattern for the previous month's base format (without numbers)
-        base_pattern = channel_format.replace("[year]", str(prev_month_year))
+        # Create channel name pattern for the current month's base format (without numbers)
+        base_pattern = channel_format.replace("[year]", str(current_month_year))
         
         # Create two base patterns - one with month name, one with month number
-        base_pattern_name = base_pattern.replace("[month]", prev_month_name)
-        base_pattern_number = base_pattern.replace("[month]", prev_month_number)
+        base_pattern_name = base_pattern.replace("[month]", current_month_name)
+        base_pattern_number = base_pattern.replace("[month]", current_month_number)
         
         # If [number] is in the pattern, remove it for base matching
         if "[number]" in base_pattern_name:
@@ -389,7 +390,7 @@ def get_active_users_from_previous_month(client, workspace_info: dict):
             base_pattern_name = base_pattern_name.split("[number]")[0]
             base_pattern_number = base_pattern_number.split("[number]")[0]
             
-        logging.info(f"Looking for previous month channels that start with: '{base_pattern_name}' or '{base_pattern_number}'")
+        logging.info(f"Looking for current month channels that start with: '{base_pattern_name}' or '{base_pattern_number}'")
         
         # List all non-archived channels (using exclude_archived=True)
         result = client.conversations_list(types="private_channel", exclude_archived=True)
@@ -402,9 +403,9 @@ def get_active_users_from_previous_month(client, workspace_info: dict):
             if (channel_name.startswith(base_pattern_name) or 
                 channel_name.startswith(base_pattern_number)):
                 matching_channels.append(channel)
-                logging.info(f"Found matching previous month channel: {channel_name}")
+                logging.info(f"Found matching current month channel: {channel_name}")
                 
-        logging.info(f"Found {len(matching_channels)} matching channels for previous month")
+        logging.info(f"Found {len(matching_channels)} matching channels for current month")
         
         # Process each matching channel
         for channel in matching_channels:
@@ -455,7 +456,7 @@ def get_active_users_from_previous_month(client, workspace_info: dict):
                 weekly_posters.add(user_id)
                 logging.info(f"User {user_id} classified as weekly poster with {count} messages")
                 
-        logging.info(f"Found {len(daily_posters)} daily posters and {len(weekly_posters)} weekly posters from last week of {prev_month_name}")
+        logging.info(f"Found {len(daily_posters)} daily posters and {len(weekly_posters)} weekly posters from last week of {current_month_name}")
         
         return daily_posters, weekly_posters
         
@@ -542,10 +543,10 @@ def make_new_checkin_groups(client, workspace_info: dict):
     # Check if auto-add active users is enabled
     auto_add_enabled = workspace_info.get("auto_add_active_users", False)
     if auto_add_enabled:
-        logging.info("Auto-add active users is enabled - getting active users from previous month")
+        logging.info("Auto-add active users is enabled - getting active users from current month")
         
-        # Get users who were active in the previous month, classified by activity level
-        auto_daily_posters, auto_weekly_posters = get_active_users_from_previous_month(client, workspace_info)
+        # Get users who were active in the current month's last week, classified by activity level
+        auto_daily_posters, auto_weekly_posters = get_active_users_from_current_month(client, workspace_info)
         
         # Exclude bot from auto-added users
         if bot_user_id:
