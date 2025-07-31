@@ -546,7 +546,13 @@ def make_new_checkin_groups(client, workspace_info: dict):
         logging.info("Auto-add active users is enabled - getting active users from current month")
         
         # Get users who were active in the current month's last week, classified by activity level
-        auto_daily_posters, auto_weekly_posters = get_active_users_from_current_month(client, workspace_info)
+        try:
+            auto_daily_posters, auto_weekly_posters = get_active_users_from_current_month(client, workspace_info)
+        except Exception as e:
+            logging.error(f"Failed to get active users, continuing without auto-add: {e}")
+            dm_admins(client, workspace_info, f"Warning: Auto-add failed but continuing with manual signups: {e}")
+            auto_daily_posters = set()
+            auto_weekly_posters = set()
         
         # Exclude bot from auto-added users
         if bot_user_id:
