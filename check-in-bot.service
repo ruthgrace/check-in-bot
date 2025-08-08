@@ -20,7 +20,7 @@ LimitNOFILE=65536
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=slack-bot
+SyslogIdentifier=check-in-bot
 
 # Environment
 Environment=PYTHONUNBUFFERED=1
