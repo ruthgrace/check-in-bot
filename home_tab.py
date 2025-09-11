@@ -162,7 +162,7 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
         always_include_text += "\n\n" + ", ".join(user_mentions) + "\n\nThese users will automatically be included in the next month's check-in groups as weekly posters."
     else:
         always_include_text += "\n\nNo users are currently set to be always included."
-    always_include_text += "\n\nYou can add users with `always include @user`"
+    always_include_text += "\n\nYou can add users with `always include @user` or remove them with `remove from always include @user`"
     blocks.append({
         "type": "section",
         "text": {
