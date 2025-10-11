@@ -46,7 +46,7 @@ def get_home_view(user_id: str, team_id: str, team_name: str, client, get_worksp
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "*Want to save your check-ins?*\nYou can DM me with a channel name (like #channel-name) and I'll send you all your check-ins from that channel! Note that threaded replies are not included unless they were also posted as top-level channel messages."
+                "text": "*Want to save your check-ins?*\nYou can DM me with a channel name (like #channel-name) and I'll send you all your check-ins from that channel! Note that threaded replies are not included unless they were also posted as top-level channel messages. Also note that on the Free plan of Slack, only the last 90 days of messages are saved."
             }
         },
         {
