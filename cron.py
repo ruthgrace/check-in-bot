@@ -117,7 +117,7 @@ def build_intro_message(users: list, month: str, admins: list = None):
     
     message = (
         f"Welcome to {month}! {MONTH_EMOJIS[month]} {users_text}\n\n"
-        f"Let's do introductions here in thread. You can be as brief or long as you like. Share any of: who you might mention in your check ins, what's been on your mind lately, or what you'd like to build in the short or long term. (pasting your intro from a previous month is fine too!)\n\n"
+        f"Let's do introductions here in thread. You can be as brief or long as you like. Share any of: who you might mention in your check ins, what's been on your mind lately, or what you'd like to get done in the short or long term. (pasting your intro from a previous month is fine too!)\n\n"
         f"General info about this group:\n"
         f"* The aim is to create a supportive group of close-knit friends, not to make people feel bad about their productivity level\n"
         f"* We share our intentions for the day and how our previous day went, often along with a little journalling. The format is casual and flexible, and i'm happy for you to use this group in a way that feels most useful to you. Some people post daily and others weekly.\n"
