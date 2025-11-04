@@ -124,7 +124,8 @@ def build_intro_message(users: list, month: str, admins: list = None):
         f"* If you don't end up posting anything by the 10th of the month I will bump you out of this month's group, just to make sure nobody feels weird about people reading without posting. I'll send out reminders to people who haven't posted around the 7th.\n"
         f"* If you want to get the text of all your checkins from a month, message me just the name of the channel, like `#2025-february-1` (but in plain text; the channel should turn into a blue link). Note that ONLY MESSAGES FROM THE PAST 90 DAYS ARE SAVED on our Free Slack plan.\n"
         f"{admin_text}\n"
-        f"* If you read someone else's message, leave an emoji react! :slightly_smiling_face: I will leave some initial emoji reacts on each message to foster more human to human interaction."
+        f"* If you read someone else's message, leave an emoji react! :slightly_smiling_face: I will leave some initial emoji reacts on each message to foster more human to human interaction.\n"
+        f"*While it's OK to share that you know someone through this group, _please keep information you learn about people here confidential_. For many of us this is our diary.*"
     )
     return message
 
