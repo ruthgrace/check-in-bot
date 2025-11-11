@@ -343,6 +343,43 @@ def post_monthly_signup(client, workspace_info: dict):
         logging.exception(e)  # Log the full stack trace
         dm_admins(client, workspace_info, error_message)
 
+def post_signup_close(client, workspace_info: dict):
+    """Post a message to the announcement channel that signups are now closed"""
+    try:
+        # Get the announcement channel
+        announcement_channel = workspace_info.get("announcement_channel")
+        if not announcement_channel:
+            logging.info("No announcement channel set for this workspace, skipping signup close message")
+            return
+
+        # Get the current month name
+        now = get_pt_time()
+        current_month_name = now.strftime("%B")
+
+        # Build the message
+        message = (
+            f"Signups for {current_month_name} are now closed. "
+            f"If you would like to participate in the future, turn on your notifications for this channel "
+            f"and I will open up signups for each month on the 25th of the previous month."
+        )
+
+        # Post the message
+        result = client.chat_postMessage(
+            channel=announcement_channel,
+            text=message
+        )
+
+        dm_admins(client, workspace_info, f"Posted signup close message to channel <#{announcement_channel}>")
+        logging.info(f"Posted signup close message to channel <#{announcement_channel}>")
+
+    except SlackApiError as e:
+        error_message = f"Error posting signup close message: {e}"
+        logging.error(error_message)
+        if hasattr(e, 'response') and e.response is not None:
+            logging.error(f"API response: {e.response}")
+        logging.exception(e)  # Log the full stack trace
+        dm_admins(client, workspace_info, error_message)
+
 def get_active_users_from_current_month(client, workspace_info: dict):
     """Get users who were active in the LAST WEEK of the current month
     
@@ -1226,6 +1263,8 @@ if __name__ == "__main__":
             # On the 2nd, add late signups to existing groups
             elif current_day == 1 or current_day == 2 or current_day == 3 or current_day == 4:
                 add_late_signups_to_groups(client, workspace_info)
+                if current_day == 4:
+                    post_signup_close(client, workspace_info)
             elif current_day == 7 or current_day == 11:
                 # Get current month's channels
                 channels = get_current_month_channels(client, workspace_info)
