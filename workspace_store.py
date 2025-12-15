@@ -120,25 +120,109 @@ def verify_admin_passcode(team_id: str, user_id: str, passcode: str) -> bool:
             return True
     return False
 
-def add_incompatible_pair(team_id: str, user1: str, user2: str):
+def add_incompatible_pair(team_id: str, user1: str, user2: str) -> tuple:
     """Add a pair of users that should be kept apart
-    
+
     Args:
         team_id: The workspace team ID
         user1: First user ID (without the @ symbol)
         user2: Second user ID (without the @ symbol)
+
+    Returns:
+        tuple: (success: bool, error_message: str)
+    """
+    data = get_workspace_info()
+    if team_id not in data:
+        return (False, "Workspace not found")
+
+    # Sort user IDs to ensure consistent storage
+    pair = tuple(sorted([user1, user2]))
+
+    # Check for conflict with compatible_pairs
+    compatible_pairs = data[team_id].get("compatible_pairs", [])
+    if pair in compatible_pairs:
+        return (False, f"Cannot keep <@{user1}> and <@{user2}> apart - they are already set to be kept together")
+
+    if "incompatible_pairs" not in data[team_id]:
+        data[team_id]["incompatible_pairs"] = []
+
+    if pair not in data[team_id]["incompatible_pairs"]:
+        data[team_id]["incompatible_pairs"].append(pair)
+        save_workspace_info(data)
+        logging.info(f"Added incompatible pair in workspace {team_id}: {user1} and {user2}")
+        return (True, "")
+    return (True, "Pair already exists")
+
+def add_compatible_pair(team_id: str, user1: str, user2: str) -> tuple:
+    """Add a pair of users that should be kept together
+
+    Args:
+        team_id: The workspace team ID
+        user1: First user ID (without the @ symbol)
+        user2: Second user ID (without the @ symbol)
+
+    Returns:
+        tuple: (success: bool, error_message: str)
+    """
+    data = get_workspace_info()
+    if team_id not in data:
+        return (False, "Workspace not found")
+
+    # Sort user IDs to ensure consistent storage
+    pair = tuple(sorted([user1, user2]))
+
+    # Check for conflict with incompatible_pairs
+    incompatible_pairs = data[team_id].get("incompatible_pairs", [])
+    if pair in incompatible_pairs:
+        return (False, f"Cannot keep <@{user1}> and <@{user2}> together - they are already set to be kept apart")
+
+    if "compatible_pairs" not in data[team_id]:
+        data[team_id]["compatible_pairs"] = []
+
+    if pair not in data[team_id]["compatible_pairs"]:
+        data[team_id]["compatible_pairs"].append(pair)
+        save_workspace_info(data)
+        logging.info(f"Added compatible pair in workspace {team_id}: {user1} and {user2}")
+        return (True, "")
+    return (True, "Pair already exists")
+
+def remove_compatible_pair(team_id: str, user1: str, user2: str) -> tuple:
+    """Remove a pair of users from the keep-together list
+
+    Args:
+        team_id: The workspace team ID
+        user1: First user ID (without the @ symbol)
+        user2: Second user ID (without the @ symbol)
+
+    Returns:
+        tuple: (success: bool, message: str)
+    """
+    data = get_workspace_info()
+    if team_id not in data:
+        return (False, "Workspace not found")
+
+    pair = tuple(sorted([user1, user2]))
+
+    if "compatible_pairs" in data[team_id] and pair in data[team_id]["compatible_pairs"]:
+        data[team_id]["compatible_pairs"].remove(pair)
+        save_workspace_info(data)
+        logging.info(f"Removed compatible pair in workspace {team_id}: {user1} and {user2}")
+        return (True, f"<@{user1}> and <@{user2}> will no longer be kept together")
+    return (False, f"<@{user1}> and <@{user2}> are not in the keep-together list")
+
+def get_compatible_pairs(team_id: str) -> list:
+    """Get all keep-together pairs for a workspace
+
+    Args:
+        team_id: The workspace team ID
+
+    Returns:
+        list: List of tuples containing user ID pairs
     """
     data = get_workspace_info()
     if team_id in data:
-        if "incompatible_pairs" not in data[team_id]:
-            data[team_id]["incompatible_pairs"] = []
-            
-        # Sort user IDs to ensure consistent storage
-        pair = tuple(sorted([user1, user2]))
-        if pair not in data[team_id]["incompatible_pairs"]:
-            data[team_id]["incompatible_pairs"].append(pair)
-            save_workspace_info(data)
-            logging.info(f"Added incompatible pair in workspace {team_id}: {user1} and {user2}")
+        return data[team_id].get("compatible_pairs", [])
+    return []
 
 def validate_channel_format(format_str: str) -> tuple:
     """Validate channel format string

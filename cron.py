@@ -631,32 +631,68 @@ def make_new_checkin_groups(client, workspace_info: dict):
     all_participants.update(daily_posters)
     all_participants.update(weekly_posters)
 
-    # check if there are any incompatible pairs in the workspace
-    incompatible_pairs = workspace_info.get("incompatible_pairs", [])
+    # Initialize group tracking structures
     group_memberships = [[]]
     added_members = set()
-    
-    # Track which users are already placed in which group (for incompatible pairs)
     user_group_map = {}
-    
-    # First pass: handle incompatible pairs
-    for pair in incompatible_pairs:
+
+    # First pass: handle compatible pairs (keep-together)
+    compatible_pairs = workspace_info.get("compatible_pairs", [])
+    for pair in compatible_pairs:
         user1, user2 = pair[0], pair[1]
-        
+
         # Skip if either user is not a participant
         if user1 not in all_participants or user2 not in all_participants:
             continue
-            
-        # Skip if both users are already assigned
-        if user1 in added_members and user2 in added_members:
-            if user1_group == user2_group:
-                logging.error(f"Incompatible users {user1} and {user2} are in the same group. This shouldn't happen.")
-                dm_admins(client, workspace_info, f"Incompatible users {user1} and {user2} are in the same group. This shouldn't happen.")
+
+        user1_group = user_group_map.get(user1)
+        user2_group = user_group_map.get(user2)
+
+        # Case 1: Neither user is assigned yet - put both in same group
+        if user1_group is None and user2_group is None:
+            # Find the smallest group
+            group_sizes = [len(group) for group in group_memberships]
+            target_group = group_sizes.index(min(group_sizes))
+
+            group_memberships[target_group].append(user1)
+            group_memberships[target_group].append(user2)
+            user_group_map[user1] = target_group
+            user_group_map[user2] = target_group
+            added_members.add(user1)
+            added_members.add(user2)
+
+        # Case 2: One user is assigned, put the other in same group
+        elif user1_group is not None and user2_group is None:
+            group_memberships[user1_group].append(user2)
+            user_group_map[user2] = user1_group
+            added_members.add(user2)
+
+        elif user2_group is not None and user1_group is None:
+            group_memberships[user2_group].append(user1)
+            user_group_map[user1] = user2_group
+            added_members.add(user1)
+
+        # Case 3: Both already assigned - they should already be together from earlier processing
+
+    # Second pass: handle incompatible pairs (keep-apart)
+    incompatible_pairs = workspace_info.get("incompatible_pairs", [])
+    for pair in incompatible_pairs:
+        user1, user2 = pair[0], pair[1]
+
+        # Skip if either user is not a participant
+        if user1 not in all_participants or user2 not in all_participants:
             continue
-            
+
         # Check if either user is already in a group
         user1_group = user_group_map.get(user1)
         user2_group = user_group_map.get(user2)
+
+        # Skip if both users are already assigned (check for conflict)
+        if user1 in added_members and user2 in added_members:
+            if user1_group == user2_group:
+                logging.error(f"Incompatible users {user1} and {user2} are in the same group. This shouldn't happen.")
+                dm_admins(client, workspace_info, f"Incompatible users <@{user1}> and <@{user2}> ended up in the same group due to keep-together rules.")
+            continue
         
         # Case 1: Neither user is assigned yet
         if user1_group is None and user2_group is None:
@@ -703,7 +739,7 @@ def make_new_checkin_groups(client, workspace_info: dict):
         for i in range(len(all_participants) // 11-len(group_memberships)):
             group_memberships.append([])
     
-    # Second pass: assign remaining users to groups, starting with smallest groups first
+    # Third pass: assign remaining users to groups, starting with smallest groups first
     # For daily posters
     remaining_daily_posters = [user for user in daily_posters if user not in added_members]
     for user in remaining_daily_posters:
@@ -1124,39 +1160,57 @@ def add_late_signups_to_groups(client, workspace_info: dict):
 
     logging.info(f"[{workspace_identifier}] Found {len(new_users_to_add)} new users to add to existing groups")
 
-    # Check for incompatible pairs among new users and existing members
+    # Get pair rules
     incompatible_pairs = workspace_info.get("incompatible_pairs", [])
-    
+    compatible_pairs = workspace_info.get("compatible_pairs", [])
+
     # Track which users are added to which channels for batched welcome messages
     channel_new_users = {}  # Map channel_id -> list of new users added
-    
-    # Distribute new users across existing channels, avoiding incompatible pairs
+
+    # Distribute new users across existing channels
     for user in new_users_to_add:
-        # Find channels where this user can be added (no incompatible pairs)
-        compatible_channels = []
-        
-        for channel_id, members in channel_members.items():
-            is_compatible = True
-            
-            # Check if user has incompatible pairs with existing members
-            for pair in incompatible_pairs:
-                if user in pair:
-                    other_user = pair[1] if pair[0] == user else pair[0]
-                    if other_user in members:
-                        is_compatible = False
+        target_channel_id = None
+
+        # Priority 1: Check if user has a keep-together partner already in a channel
+        for pair in compatible_pairs:
+            if user in pair:
+                partner = pair[1] if pair[0] == user else pair[0]
+                # Find which channel the partner is in
+                for channel_id, members in channel_members.items():
+                    if partner in members:
+                        target_channel_id = channel_id
+                        logging.info(f"[{workspace_identifier}] Adding user {user} to channel with keep-together partner {partner}")
                         break
-            
-            if is_compatible:
-                compatible_channels.append((channel_id, len(members)))
-        
-        if not compatible_channels:
-            logging.warning(f"[{workspace_identifier}] No compatible channels found for user {user} due to incompatible pair constraints")
-            dm_admins(client, workspace_info, f"Could not add user <@{user}> to any group due to incompatible pair constraints")
-            continue
-        
-        # Add to the channel with the fewest members
-        compatible_channels.sort(key=lambda x: x[1])
-        target_channel_id = compatible_channels[0][0]
+                if target_channel_id:
+                    break
+
+        # Priority 2: Find channels compatible with keep-apart rules
+        if not target_channel_id:
+            compatible_channels = []
+            for channel_id, members in channel_members.items():
+                is_compatible = True
+                for pair in incompatible_pairs:
+                    if user in pair:
+                        other_user = pair[1] if pair[0] == user else pair[0]
+                        if other_user in members:
+                            is_compatible = False
+                            break
+                if is_compatible:
+                    compatible_channels.append((channel_id, len(members)))
+
+            if compatible_channels:
+                # Add to the smallest compatible channel
+                compatible_channels.sort(key=lambda x: x[1])
+                target_channel_id = compatible_channels[0][0]
+
+        # Priority 3: Fallback to smallest channel if no compatible channel found
+        if not target_channel_id:
+            logging.warning(f"[{workspace_identifier}] No compatible channels found for user {user}, falling back to smallest channel")
+            dm_admins(client, workspace_info, f"Warning: Added <@{user}> to smallest group despite keep-apart constraints (no compatible channel available)")
+            # Find the smallest channel
+            all_channels = [(channel_id, len(members)) for channel_id, members in channel_members.items()]
+            all_channels.sort(key=lambda x: x[1])
+            target_channel_id = all_channels[0][0]
         
         try:
             # Add user to the channel

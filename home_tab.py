@@ -153,7 +153,26 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
             "text": incompatible_text
         }
     })
-    
+
+    # Add keep together section
+    compatible_pairs = workspace_info.get("compatible_pairs", [])
+    compatible_text = "\n\n*Users kept together:*"
+    if compatible_pairs:
+        pair_texts = []
+        for user1, user2 in compatible_pairs:
+            pair_texts.append(f"<@{user1}> and <@{user2}>")
+        compatible_text += "\n\n" + "\n".join(pair_texts)
+    else:
+        compatible_text += "\n\nNo users are currently being kept together."
+    compatible_text += "\n\nYou can add users to be kept together with `keep together @user1 @user2`"
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": compatible_text
+        }
+    })
+
     # Add always include users section
     always_include_users = workspace_info.get("always_include_users", [])
     always_include_text = "\n\n*Users always included in check-in groups:*"
