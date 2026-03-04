@@ -210,6 +210,30 @@ def remove_compatible_pair(team_id: str, user1: str, user2: str) -> tuple:
         return (True, f"<@{user1}> and <@{user2}> will no longer be kept together")
     return (False, f"<@{user1}> and <@{user2}> are not in the keep-together list")
 
+def remove_incompatible_pair(team_id: str, user1: str, user2: str) -> tuple:
+    """Remove a pair of users from the keep-apart list
+
+    Args:
+        team_id: The workspace team ID
+        user1: First user ID (without the @ symbol)
+        user2: Second user ID (without the @ symbol)
+
+    Returns:
+        tuple: (success: bool, message: str)
+    """
+    data = get_workspace_info()
+    if team_id not in data:
+        return (False, "Workspace not found")
+
+    pair = tuple(sorted([user1, user2]))
+
+    if "incompatible_pairs" in data[team_id] and pair in data[team_id]["incompatible_pairs"]:
+        data[team_id]["incompatible_pairs"].remove(pair)
+        save_workspace_info(data)
+        logging.info(f"Removed incompatible pair in workspace {team_id}: {user1} and {user2}")
+        return (True, f"<@{user1}> and <@{user2}> will no longer be kept apart")
+    return (False, f"<@{user1}> and <@{user2}> are not in the keep-apart list")
+
 def get_compatible_pairs(team_id: str) -> list:
     """Get all keep-together pairs for a workspace
 

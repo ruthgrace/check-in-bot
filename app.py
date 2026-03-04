@@ -11,7 +11,7 @@ from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 import logging
-from workspace_store import get_workspace_info, ensure_workspace_exists, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, add_compatible_pair, remove_compatible_pair, update_channel_format, update_announcement_channel, update_custom_announcement, update_announcement_tag, update_auto_add_setting, update_announcement_timestamp, add_always_include_user, remove_always_include_user
+from workspace_store import get_workspace_info, ensure_workspace_exists, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, add_compatible_pair, remove_compatible_pair, remove_incompatible_pair, update_channel_format, update_announcement_channel, update_custom_announcement, update_announcement_tag, update_auto_add_setting, update_announcement_timestamp, add_always_include_user, remove_always_include_user
 from home_tab import register_home_tab_handlers
 
 # Add this near the top of your file
@@ -380,7 +380,35 @@ def handle_admin_request(client, event, logger):
                 text=f"Could not add keep-together rule: {error}"
             )
         return True
-    
+
+    # Handle remove keep apart command
+    if text.startswith("remove keep apart"):
+        mentions = re.findall(r'<@([A-Z0-9]+)>', event["text"])
+        if len(mentions) != 2:
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="Please mention exactly two users to remove from keep-apart, like: remove keep apart @user1 @user2"
+            )
+            return True
+
+        success, message = remove_incompatible_pair(event["team"], mentions[0], mentions[1])
+        client.chat_postMessage(channel=event["channel"], text=message)
+        return True
+
+    # Handle remove keep together command
+    if text.startswith("remove keep together"):
+        mentions = re.findall(r'<@([A-Z0-9]+)>', event["text"])
+        if len(mentions) != 2:
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="Please mention exactly two users to remove from keep-together, like: remove keep together @user1 @user2"
+            )
+            return True
+
+        success, message = remove_compatible_pair(event["team"], mentions[0], mentions[1])
+        client.chat_postMessage(channel=event["channel"], text=message)
+        return True
+
     # Handle auto-add setting
     if text.startswith("set auto-add"):
         setting = text[len("set auto-add"):].strip().lower()

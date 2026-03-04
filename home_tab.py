@@ -145,7 +145,7 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
         incompatible_text += "\n\n" + "\n".join(pair_texts)
     else:
         incompatible_text += "\n\nNo users are currently being kept apart."
-    incompatible_text += "\n\nYou can add users to be kept apart with `keep apart @user1 @user2`"
+    incompatible_text += "\n\nYou can add users with `keep apart @user1 @user2` or remove them with `remove keep apart @user1 @user2`"
     blocks.append({
         "type": "section",
         "text": {
@@ -164,7 +164,7 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
         compatible_text += "\n\n" + "\n".join(pair_texts)
     else:
         compatible_text += "\n\nNo users are currently being kept together."
-    compatible_text += "\n\nYou can add users to be kept together with `keep together @user1 @user2`"
+    compatible_text += "\n\nYou can add users with `keep together @user1 @user2` or remove them with `remove keep together @user1 @user2`"
     blocks.append({
         "type": "section",
         "text": {
