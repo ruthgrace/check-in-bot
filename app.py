@@ -3,7 +3,7 @@ import re
 import string
 import random
 from datetime import datetime, date, timedelta
-from openai import OpenAI
+from anthropic import Anthropic
 from slack_bolt import App
 from slack_bolt.oauth.oauth_settings import OAuthSettings
 from slack_sdk.oauth.installation_store import FileInstallationStore
@@ -23,8 +23,8 @@ logging.basicConfig(
 tokens = importlib.import_module("tokens")
 
 
-ai_client = OpenAI(
-    api_key=tokens.open_ai_key,
+ai_client = Anthropic(
+    api_key=tokens.anthropic_key,
 )
 
 oauth_settings = OAuthSettings(
@@ -182,38 +182,36 @@ def should_react(client, event, logger):
 
 def get_emojis(client, event, logger):
   try:
-    chat_completion = ai_client.chat.completions.create(
+    message = ai_client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=200,
+        system="You are a intelligent assistant. You respond to all of the following messages with a single line representing four unique emojis, formatted for Slack. The emojis should represent things mentioned in the messages, with only zero or one emojis representing sentiment. Note that text surrounded by ~ or where the line starts or ends with a negative emoji like :no_pedestrians: or :heavy_multiplication_x: means that the task mentioned there was not completed - please exclude these lines from your emoji output. If the messages express deep sadness or high stress or mention anything related to death of people or animals, please use :people_hugging: to express comfort instead of something more specific for that part of the text. For example if someone's relative died please react with a hug instead of with an emoji representing the relative or death. Also, please use ungendered emojis, for example, :cook: is preferred over :female-cook: or :male-cook:",
         messages=[
-          {
-            "role": "system",
-            "content": "You are a intelligent assistant. You respond to all of the following messages with a single line representing four unique emojis, formatted for Slack. The emojis should represent things mentioned in the messages, with only zero or one emojis representing sentiment. Note that text surrounded by ~ or where the line starts or ends with a negative emoji like :no_pedestrians: or :heavy_multiplication_x: means that the task mentioned there was not completed - please exclude these lines from your emoji output. If the messages express deep sadness or high stress or mention anything related to death of people or animals, please use :people_hugging: to express comfort instead of something more specific for that part of the text. For example if someone's relative died please react with a hug instead of with an emoji representing the relative or death. Also, please use ungendered emojis, for example, :cook: is preferred over :female-cook: or :male-cook:",
-          }, 
           {
             "role": "user",
             "content": event["text"]
-          }, 
+          },
         ],
-        model="gpt-4",
     )
     # Validate response structure
-    if not chat_completion.choices or not chat_completion.choices[0].message.content:
-      logger.error("Empty or invalid response from OpenAI")
+    if not message.content or not message.content[0].text:
+      logger.error("Empty or invalid response from Claude")
       return None
-      
-    reply = chat_completion.choices[0].message.content
+
+    reply = message.content[0].text
     reply = reply.strip().strip(":")
     emojis = re.split(r':\s*:*', reply)
-    
+
     # Filter out empty strings and validate emoji names
     valid_emojis = [emoji for emoji in emojis if emoji and len(emoji) > 0]
-    
+
     if not valid_emojis:
-      logger.error(f"No valid emojis extracted from OpenAI response: {reply}")
+      logger.error(f"No valid emojis extracted from Claude response: {reply}")
       return None
-      
+
     return valid_emojis
   except Exception as e:
-    logger.error(f"Error getting emojis from OpenAI: {repr(e)}")
+    logger.error(f"Error getting emojis from Claude: {repr(e)}")
     return None
 
 def post_emojis(client, event, logger, emojis):

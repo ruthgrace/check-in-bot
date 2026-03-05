@@ -1,5 +1,5 @@
 slack_bolt
-openai
+anthropic
 supabase
 gunicorn
 flask
