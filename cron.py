@@ -1,4 +1,5 @@
 import logging
+import requests
 from datetime import datetime, timedelta
 from slack_bolt import App
 from slack_bolt.oauth.oauth_settings import OAuthSettings
@@ -164,8 +165,13 @@ def get_users_without_posts(client, channel_id: str):
     try:
         # Get channel members using conversations_members instead of groups_members
         members = client.conversations_members(channel=channel_id)["members"]
-        # Get messages from the last month
-        messages = client.conversations_history(channel=channel_id, limit=999)["messages"]
+        # Get messages from the last month (use requests to avoid urllib IncompleteRead on large responses)
+        r = requests.get(
+            "https://slack.com/api/conversations.history",
+            params={"channel": channel_id, "limit": 999},
+            headers={"Authorization": f"Bearer {client.token}"},
+        )
+        messages = r.json()["messages"]
         # Track who has posted what
         posted_users = set()  # Users who posted in main channel
         thread_only_users = set()  # Users who only posted in threads
