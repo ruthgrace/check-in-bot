@@ -553,6 +553,10 @@ def handle_admin_request(client, event, logger):
         return True
     return False
 
+@app.event("reaction_added")
+def handle_reaction_added(body, logger):
+  pass
+
 @app.event("message")
 def respond_to_message(client, event, logger):
   # direct messages to the bot are only used for extracting check ins
