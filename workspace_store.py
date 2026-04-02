@@ -419,3 +419,62 @@ def get_always_include_users(workspace_id: str):
     if workspace_id in data:
         return data[workspace_id].get("always_include_users", [])
     return []
+
+def add_emoji_optout_user(workspace_id: str, user_id: str):
+    """Add a user to the emoji reaction opt-out list
+
+    Args:
+        workspace_id: The workspace team ID
+        user_id: The user ID to opt out
+
+    Returns:
+        tuple: (success, message)
+    """
+    data = get_workspace_info()
+    if workspace_id in data:
+        if "emoji_optout_users" not in data[workspace_id]:
+            data[workspace_id]["emoji_optout_users"] = []
+
+        if user_id not in data[workspace_id]["emoji_optout_users"]:
+            data[workspace_id]["emoji_optout_users"].append(user_id)
+            save_workspace_info(data)
+            logging.info(f"Added user {user_id} to emoji opt-out list for workspace {workspace_id}")
+            return (True, f"User <@{user_id}> opted out of emoji reactions")
+        else:
+            return (False, f"User <@{user_id}> is already opted out of emoji reactions")
+    return (False, "Workspace not found")
+
+def remove_emoji_optout_user(workspace_id: str, user_id: str):
+    """Remove a user from the emoji reaction opt-out list
+
+    Args:
+        workspace_id: The workspace team ID
+        user_id: The user ID to opt back in
+
+    Returns:
+        tuple: (success, message)
+    """
+    data = get_workspace_info()
+    if workspace_id in data and "emoji_optout_users" in data[workspace_id]:
+        if user_id in data[workspace_id]["emoji_optout_users"]:
+            data[workspace_id]["emoji_optout_users"].remove(user_id)
+            save_workspace_info(data)
+            logging.info(f"Removed user {user_id} from emoji opt-out list for workspace {workspace_id}")
+            return (True, f"User <@{user_id}> opted back in to emoji reactions")
+        else:
+            return (False, f"User <@{user_id}> is not in the emoji opt-out list")
+    return (False, "Workspace not found or no emoji opt-out list exists")
+
+def get_emoji_optout_users(workspace_id: str):
+    """Get the list of users who have opted out of emoji reactions
+
+    Args:
+        workspace_id: The workspace team ID
+
+    Returns:
+        list: List of user IDs who have opted out
+    """
+    data = get_workspace_info()
+    if workspace_id in data:
+        return data[workspace_id].get("emoji_optout_users", [])
+    return []

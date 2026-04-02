@@ -11,7 +11,7 @@ from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 import logging
-from workspace_store import get_workspace_info, ensure_workspace_exists, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, add_compatible_pair, remove_compatible_pair, remove_incompatible_pair, update_channel_format, update_announcement_channel, update_custom_announcement, update_announcement_tag, update_auto_add_setting, update_announcement_timestamp, add_always_include_user, remove_always_include_user
+from workspace_store import get_workspace_info, ensure_workspace_exists, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, add_compatible_pair, remove_compatible_pair, remove_incompatible_pair, update_channel_format, update_announcement_channel, update_custom_announcement, update_announcement_tag, update_auto_add_setting, update_announcement_timestamp, add_always_include_user, remove_always_include_user, get_emoji_optout_users
 from home_tab import register_home_tab_handlers
 
 # Add this near the top of your file
@@ -159,10 +159,13 @@ def should_react(client, event, logger):
     return False
   if "subtype" in event and event["subtype"] in NO_REACT_EVENTS:
     return False
+  def user_opted_out():
+    return event.get("user") in get_emoji_optout_users(event["team"])
+
   if "thread_ts" not in event.keys():
-    return True
+    return not user_opted_out()
   if ("subtype" in event and event["subtype"] == "thread_broadcast"):
-    return True
+    return not user_opted_out()
   # get parent message from thread_ts and check if it's the welcome message asking for intros in thread
   try:
     parent = client.conversations_replies(

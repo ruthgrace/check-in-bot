@@ -3,7 +3,7 @@ import traceback
 from datetime import datetime
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
-from workspace_store import ensure_workspace_exists, update_channel_format, get_always_include_users
+from workspace_store import ensure_workspace_exists, update_channel_format, get_always_include_users, get_workspace_info, add_emoji_optout_user, remove_emoji_optout_user, get_emoji_optout_users
 from cron import build_announcement_message
 
 def get_home_view(user_id: str, team_id: str, team_name: str, client, get_workspace_info):
@@ -53,7 +53,7 @@ def get_home_view(user_id: str, team_id: str, team_name: str, client, get_worksp
             "type": "divider"
         }
     ]
-    
+
     # Check if user is NOT an admin but IS in the always include list
     is_admin = workspace_info and workspace_info.get("admins") and user_id in workspace_info["admins"]
     always_include_users = workspace_info.get("always_include_users", []) if workspace_info else []
@@ -81,7 +81,45 @@ def get_home_view(user_id: str, team_id: str, team_name: str, client, get_worksp
             "text": admin_text + "\n\nAdministrators can ask check-in-bot to keep certain users from being in the same check-in-group."
         }
     })
-    
+
+    # Add Settings section with emoji reaction opt-out toggle
+    emoji_optout_users = workspace_info.get("emoji_optout_users", []) if workspace_info else []
+    is_opted_out = user_id in emoji_optout_users
+
+    if is_opted_out:
+        emoji_status_text = "*Emoji Reactions:* Currently *off* for your check-in messages."
+        button_text = "Turn On Reactions"
+    else:
+        emoji_status_text = "*Emoji Reactions:* Currently *on* for your check-in messages."
+        button_text = "Turn Off Reactions"
+
+    blocks.extend([
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "Settings",
+                "emoji": True
+            }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": emoji_status_text + "\nReactions on intro thread messages are always enabled."
+            },
+            "accessory": {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": button_text,
+                    "emoji": True
+                },
+                "action_id": "toggle_emoji_optout"
+            }
+        }
+    ])
+
     view = {
         "type": "home",
         "blocks": blocks
@@ -93,7 +131,7 @@ def get_home_view(user_id: str, team_id: str, team_name: str, client, get_worksp
 
 def register_home_tab_handlers(app):
     """Register all home tab related event handlers"""
-    
+
     @app.event("app_home_opened")
     def update_home_tab(client, event, logger):
         """Handle app home opened events"""
@@ -102,12 +140,12 @@ def register_home_tab_handlers(app):
             if event["tab"] != "home":
                 return
             logger.info(f"Publishing home view for user {event['user']}")
-            
+
             # Get team_id from the client's context
             team_info = client.team_info()
             team_id = team_info["team"]["id"]
             team_name = team_info["team"]["name"]
-                
+
             result = client.views_publish(
                 user_id=event["user"],
                 view=get_home_view(event["user"], team_id, team_name, client, app.get_workspace_info)
@@ -116,6 +154,26 @@ def register_home_tab_handlers(app):
             logger.error(f"Error publishing home tab: {str(e)}")
             logger.error(f"Full error details:\n{traceback.format_exc()}")
             logger.error(f"Event object: {event}")
+
+    @app.action("toggle_emoji_optout")
+    def handle_toggle_emoji_optout(ack, body, client, logger):
+        """Handle emoji reaction opt-out toggle button"""
+        ack()
+        user_id = body["user"]["id"]
+        team_id = body["team"]["id"]
+
+        optout_users = get_emoji_optout_users(team_id)
+        if user_id in optout_users:
+            remove_emoji_optout_user(team_id, user_id)
+        else:
+            add_emoji_optout_user(team_id, user_id)
+
+        team_info = client.team_info()
+        team_name = team_info["team"]["name"]
+        client.views_publish(
+            user_id=user_id,
+            view=get_home_view(user_id, team_id, team_name, client, get_workspace_info)
+        )
 
 def build_admin_home(workspace_info: dict, blocks: list) -> dict:
     """Build the admin home tab view"""
