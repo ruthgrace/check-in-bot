@@ -1137,8 +1137,13 @@ def add_late_signups_to_groups(client, workspace_info: dict):
             
             # Look for the welcome message in this channel
             try:
-                history = client.conversations_history(channel=channel["id"], limit=50)
-                for message in history["messages"]:
+                r = requests.get(
+                    "https://slack.com/api/conversations.history",
+                    params={"channel": channel["id"], "limit": 50},
+                    headers={"Authorization": f"Bearer {client.token}"},
+                )
+                history = r.json()
+                for message in history.get("messages", []):
                     # Check if it's a welcome message sent by the bot
                     if (message.get("text", "").startswith("Welcome to") and 
                         message.get("user") == bot_user_id):
