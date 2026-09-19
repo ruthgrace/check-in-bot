@@ -11,7 +11,7 @@ from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 import logging
-from workspace_store import get_workspace_info, ensure_workspace_exists, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, add_compatible_pair, remove_compatible_pair, remove_incompatible_pair, update_channel_format, update_announcement_channel, update_custom_announcement, update_announcement_tag, update_auto_add_setting, update_announcement_timestamp, add_always_include_user, remove_always_include_user, get_emoji_optout_users
+from workspace_store import get_workspace_info, ensure_workspace_exists, update_workspace_admins, generate_admin_passcode, verify_admin_passcode, add_incompatible_pair, add_compatible_pair, remove_compatible_pair, remove_incompatible_pair, update_channel_format, update_announcement_channel, update_custom_announcement, update_announcement_tag, update_auto_add_setting, update_announcement_timestamp, add_always_include_user, remove_always_include_user, get_emoji_optout_users, update_emoji_context, clear_emoji_context, get_emoji_context
 from home_tab import register_home_tab_handlers
 
 # Add this near the top of your file
@@ -185,10 +185,14 @@ def should_react(client, event, logger):
 
 def get_emojis(client, event, logger):
   try:
+    system_prompt = "You are an emoji assistant. You respond to all messages with a single line representing four unique emojis, formatted for Slack. The emojis should represent things mentioned in the messages, with only zero or one emojis representing sentiment. Note that text surrounded by ~ or where the line starts or ends with a negative emoji like :no_pedestrians: or :heavy_multiplication_x: means that the task mentioned there was not completed - please exclude these lines from your emoji output. If the messages express deep sadness or high stress or mention anything related to death of people or animals, please use :people_hugging: to express comfort instead of something more specific for that part of the text. For example if someone's relative died please react with a hug instead of with an emoji representing the relative or death. Also, please use ungendered emojis, for example, :cook: is preferred over :female-cook: or :male-cook:"
+    emoji_context = get_emoji_context(event["team"])
+    if emoji_context:
+      system_prompt += f" Additional context: {emoji_context}"
     message = ai_client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=200,
-        system="You are an emoji assistant. You respond to all messages with a single line representing four unique emojis, formatted for Slack. The emojis should represent things mentioned in the messages, with only zero or one emojis representing sentiment. Note that text surrounded by ~ or where the line starts or ends with a negative emoji like :no_pedestrians: or :heavy_multiplication_x: means that the task mentioned there was not completed - please exclude these lines from your emoji output. If the messages express deep sadness or high stress or mention anything related to death of people or animals, please use :people_hugging: to express comfort instead of something more specific for that part of the text. For example if someone's relative died please react with a hug instead of with an emoji representing the relative or death. Also, please use ungendered emojis, for example, :cook: is preferred over :female-cook: or :male-cook:",
+        system=system_prompt,
         messages=[
           {
             "role": "user",
@@ -262,7 +266,7 @@ def handle_admin_request(client, event, logger):
     # Check if user is an admin for admin-only commands
     workspace = get_workspace_info(event["team"])
     if not workspace or "admins" not in workspace or event["user"] not in workspace["admins"]:
-        if text.startswith("keep apart") or text.startswith("set channel format") or text.startswith("set announcement") or text.startswith("set auto-add") or text.startswith("always include") or text.startswith("remove from always include"):
+        if text.startswith("keep apart") or text.startswith("set channel format") or text.startswith("set announcement") or text.startswith("set auto-add") or text.startswith("always include") or text.startswith("remove from always include") or text.startswith("set emoji context") or text.startswith("clear emoji context"):
             client.chat_postMessage(
                 channel=event["channel"],
                 text="❌ Only administrators can use this command."
@@ -435,6 +439,31 @@ def handle_admin_request(client, event, logger):
             )
             return True
     
+    # Handle set emoji context command
+    if text.startswith("set emoji context"):
+        context_text = event["text"][len("set emoji context"):].strip()
+        if not context_text:
+            client.chat_postMessage(
+                channel=event["channel"],
+                text="❌ Please provide context text, like: `set emoji context Nalu is the name of a child not a dog`"
+            )
+            return True
+        update_emoji_context(event["team"], context_text)
+        client.chat_postMessage(
+            channel=event["channel"],
+            text=f"✅ Emoji context updated to: {context_text}"
+        )
+        return True
+
+    # Handle clear emoji context command
+    if text.startswith("clear emoji context"):
+        clear_emoji_context(event["team"])
+        client.chat_postMessage(
+            channel=event["channel"],
+            text="✅ Emoji context has been cleared."
+        )
+        return True
+
     # Handle set format command
     if text.startswith("set channel format"):
         new_format = event["text"][len("set channel format"):].strip()

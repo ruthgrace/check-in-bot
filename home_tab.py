@@ -3,7 +3,7 @@ import traceback
 from datetime import datetime
 from slack_sdk.models.blocks import SectionBlock, DividerBlock
 from slack_sdk.models.blocks.basic_components import MarkdownTextObject
-from workspace_store import ensure_workspace_exists, update_channel_format, get_always_include_users, get_workspace_info, add_emoji_optout_user, remove_emoji_optout_user, get_emoji_optout_users
+from workspace_store import ensure_workspace_exists, update_channel_format, get_always_include_users, get_workspace_info, add_emoji_optout_user, remove_emoji_optout_user, get_emoji_optout_users, get_emoji_context
 from cron import build_announcement_message
 
 def get_home_view(user_id: str, team_id: str, team_name: str, client, get_workspace_info):
@@ -307,6 +307,21 @@ def build_admin_home(workspace_info: dict, blocks: list) -> dict:
         "text": {
             "type": "mrkdwn",
             "text": last_announcement_text
+        }
+    })
+
+    # Add emoji context section
+    emoji_context = workspace_info.get("emoji_context", "")
+    if emoji_context:
+        emoji_context_text = f"*Emoji Context:*\n{emoji_context}"
+    else:
+        emoji_context_text = "*Emoji Context:*\nNo custom context set."
+    emoji_context_text += "\n\nThis text is added to the AI's system prompt to help it pick better emojis. Use `set emoji context [text]` to set it or `clear emoji context` to remove it."
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": emoji_context_text
         }
     })
 

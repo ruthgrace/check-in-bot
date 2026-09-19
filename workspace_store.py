@@ -478,3 +478,34 @@ def get_emoji_optout_users(workspace_id: str):
     if workspace_id in data:
         return data[workspace_id].get("emoji_optout_users", [])
     return []
+
+def update_emoji_context(workspace_id: str, context_text: str):
+    """Update the custom emoji context that gets added to the AI system prompt
+
+    Args:
+        workspace_id: The workspace team ID
+        context_text: The custom context text to add to the system prompt
+    """
+    update_workspace_info(workspace_id, {"emoji_context": context_text})
+
+def clear_emoji_context(workspace_id: str):
+    """Clear the custom emoji context for a workspace
+
+    Args:
+        workspace_id: The workspace team ID
+    """
+    update_workspace_info(workspace_id, {"emoji_context": ""})
+
+def get_emoji_context(workspace_id: str) -> str:
+    """Get the custom emoji context for a workspace
+
+    Args:
+        workspace_id: The workspace team ID
+
+    Returns:
+        str: The custom context text, or empty string if not set
+    """
+    data = get_workspace_info()
+    if workspace_id in data:
+        return data[workspace_id].get("emoji_context", "")
+    return ""
