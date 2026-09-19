@@ -1,57 +1,29 @@
-##
-# You should look at the following URL's in order to grasp a solid understanding
-# of Nginx configuration files in order to fully unleash the power of Nginx.
-# http://wiki.nginx.org/Pitfalls
-# http://wiki.nginx.org/QuickStart
-# http://wiki.nginx.org/Configuration
-#
-# Generally, you will want to move this file somewhere, and start with a clean
-# file but keep this around for reference. Or just disable in sites-enabled.
-#
-# Please see /usr/share/doc/nginx-doc/examples/ for more detailed examples.
-##
-
-# Default server configuration
-#
-
-# PUT THIS IN /etc/nginx/sites-available and /etc/nginx/sites-enabled
-
 server {
     listen 80;
     listen [::]:80;
     server_name check-in-bot.ruthgracewong.com www.check-in-bot.ruthgracewong.com;
 
-    # Allow Let's Encrypt challenges
     location ~ /.well-known {
-        root /var/www/check-in-bot;
+        root /var/www/check-in-bot/static;
         allow all;
     }
-    
-    # Redirect everything else to HTTPS
+
     location / {
         return 301 https://$host$request_uri;
     }
 }
 
 server {
-        listen 443 ssl;
-	server_name check-in-bot.ruthgracewong.com www.check-in-bot.ruthgracewong.com;
-    ssl_certificate /etc/letsencrypt/live/www.check-in-bot.ruthgracewong.com/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/www.check-in-bot.ruthgracewong.com/privkey.pem; # managed by Certbot
+    listen 443 ssl;
+    server_name check-in-bot.ruthgracewong.com www.check-in-bot.ruthgracewong.com;
+    ssl_certificate /etc/letsencrypt/live/www.check-in-bot.ruthgracewong.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/www.check-in-bot.ruthgracewong.com/privkey.pem;
 
+    location /slack {
+        proxy_pass http://127.0.0.1:3000;
+    }
 
-        location /slack {
-            proxy_pass  http://127.0.0.1:3000;
-        }
-
-        location / {
-            root /var/www/check-in-bot;
-            # proxy_set_header Host $http_host;
-            # proxy_set_header X-Real-IP $remote_addr;
-            # proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            # proxy_set_header X-Forwarded-Proto $scheme;
-            # proxy_pass http://unix:/var/www/check-in-bot/check-in-bot.sock;
-        }
-
+    location / {
+        root /var/www/check-in-bot/static;
+    }
 }
-
